@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import PersonaList from "@/components/PersonaList";
+import PersonaForm from "@/components/PersonaForm";
 import ContentForm from "@/components/ContentForm";
+import StepIndicator from "@/components/StepIndicator";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import PersonaForm, { PersonaFormData } from "@/components/PersonaForm";
-import StepIndicator from "@/components/StepIndicator";
-import FeedbackAnalytics from "@/components/FeedbackAnalytics";
-import { Button } from "@/components/ui/button";
+import PersonaConfirmation from "@/components/steps/PersonaConfirmation";
+import FeedbackResults from "@/components/steps/FeedbackResults";
+import AnalyticsView from "@/components/steps/AnalyticsView";
 
 const steps = [
   {
@@ -36,9 +35,11 @@ const Index = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [personas, setPersonas] = useState<string[]>([]);
-  const [feedbacks, setFeedbacks] = useState<
-    Array<{ persona: string; feedback: string; selectedImageUrl: string }>
-  >([]);
+  const [feedbacks, setFeedbacks] = useState<Array<{
+    persona: string;
+    feedback: string;
+    selectedImageUrl: string;
+  }>>([]);
   const { toast } = useToast();
 
   const handlePersonaFormSubmit = async (formData: PersonaFormData) => {
@@ -151,17 +152,10 @@ const Index = () => {
         );
       case 1:
         return (
-          <div className="space-y-4">
-            <PersonaList personas={personas} />
-            <div className="flex justify-end">
-              <Button
-                onClick={() => setCurrentStep(2)}
-                className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90"
-              >
-                次へ進む
-              </Button>
-            </div>
-          </div>
+          <PersonaConfirmation
+            personas={personas}
+            onNext={() => setCurrentStep(2)}
+          />
         );
       case 2:
         return (
@@ -172,40 +166,13 @@ const Index = () => {
         );
       case 3:
         return (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-900">フィードバック結果</h2>
-            <div className="grid grid-cols-1 gap-4">
-              {feedbacks.map((feedback, index) => (
-                <Card key={index} className="p-4">
-                  <div className="mb-2">
-                    <h3 className="font-semibold text-gray-700">ペルソナ {index + 1}</h3>
-                    <p className="text-sm text-gray-500">{feedback.persona}</p>
-                  </div>
-                  {feedback.selectedImageUrl && (
-                    <div className="mb-4">
-                      <img
-                        src={feedback.selectedImageUrl}
-                        alt={`選択された画像 ${index + 1}`}
-                        className="w-full rounded-lg shadow-md"
-                      />
-                    </div>
-                  )}
-                  <p className="text-gray-700 whitespace-pre-wrap">{feedback.feedback}</p>
-                </Card>
-              ))}
-            </div>
-            <div className="flex justify-end">
-              <Button
-                onClick={() => setCurrentStep(4)}
-                className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90"
-              >
-                分析を見る
-              </Button>
-            </div>
-          </div>
+          <FeedbackResults
+            feedbacks={feedbacks}
+            onNext={() => setCurrentStep(4)}
+          />
         );
       case 4:
-        return <FeedbackAnalytics feedbacks={feedbacks} />;
+        return <AnalyticsView feedbacks={feedbacks} />;
       default:
         return null;
     }
@@ -220,13 +187,11 @@ const Index = () => {
         backgroundPosition: "center",
       }}
     >
-      {/* 背景オーバーレイ */}
       <div className="absolute inset-0 bg-white/95" />
       
-      {/* メインコンテンツ */}
       <div className="relative z-10 max-w-4xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          <h1 className="text-4xl font-bold text-black mb-4">
             Persona Lens
           </h1>
           <p className="text-lg text-gray-600">

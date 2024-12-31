@@ -80,12 +80,12 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
   };
 
   return (
-    <Card className="p-6">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <Card className="p-8 backdrop-blur-md bg-white/30 border border-white/20 shadow-xl">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label
             htmlFor="content"
-            className="block text-sm font-medium text-gray-700 mb-2"
+            className="block text-sm font-medium text-gray-900 mb-2"
           >
             フィードバックを受けたい内容
           </label>
@@ -94,14 +94,14 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="フィードバックを受けたい内容を入力してください"
-            className="min-h-[100px]"
+            className="min-h-[120px] backdrop-blur-md bg-white/20 border border-white/30 focus:border-black/30 transition-colors"
           />
         </div>
 
         <div>
           <label
             htmlFor="image"
-            className="block text-sm font-medium text-gray-700 mb-2"
+            className="block text-sm font-medium text-gray-900 mb-2"
           >
             画像をアップロード (最大5枚まで)
           </label>
@@ -110,7 +110,7 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
               type="button"
               variant="outline"
               onClick={() => document.getElementById("image")?.click()}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-white/50 hover:bg-white/70 border-white/30 hover:border-white/50 transition-all"
               disabled={images.length >= 5}
             >
               <Upload className="h-4 w-4" />
@@ -126,19 +126,19 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
             />
           </div>
           {imagePreviews.length > 0 && (
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
               {imagePreviews.map((preview, index) => (
-                <div key={index} className="relative">
+                <div key={index} className="relative group">
                   <img
                     src={preview}
                     alt={`プレビュー ${index + 1}`}
-                    className="w-full rounded-lg shadow-md"
+                    className="w-full rounded-lg shadow-md transition-transform group-hover:scale-[1.02]"
                   />
                   <Button
                     type="button"
                     variant="destructive"
                     size="icon"
-                    className="absolute top-2 right-2"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => removeImage(index)}
                   >
                     <X className="h-4 w-4" />
@@ -149,7 +149,11 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
           )}
         </div>
 
-        <Button type="submit" disabled={isLoading || (!content && images.length === 0)}>
+        <Button 
+          type="submit" 
+          disabled={isLoading || (!content && images.length === 0)}
+          className="w-full bg-black text-white hover:bg-black/80 transition-colors"
+        >
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           フィードバックを取得
         </Button>
