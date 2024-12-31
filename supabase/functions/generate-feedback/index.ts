@@ -18,9 +18,9 @@ serve(async (req) => {
 
     const genAI = new GoogleGenerativeAI(Deno.env.get('GEMINI_API_KEY') || '')
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-pro",
+      model: "gemini-1.5-pro",
       generationConfig: {
-        temperature: 0.9,
+        temperature: 0.7,
         response_mime_type: "application/json"
       }
     })
@@ -35,12 +35,17 @@ ${persona}
 評価対象の画像：
 ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).join('\n')}
 
+以下の点を考慮してフィードバックを提供してください：
+1. ファーストビューとしての第一印象
+2. ターゲット層（あなた）にとっての訴求力
+3. 改善点や提案
+
 以下のJSONスキーマに従って回答してください：
 
 {
-  "selectedImageIndex": number, // 画像の番号（1から始まる整数）
-  "selectedImageUrl": string,   // 選択した画像のURL
-  "feedback": string           // フィードバックの内容（300-400文字程度）
+  "selectedImageIndex": number,  // 1から始まる整数を指定
+  "selectedImageUrl": string,    // 選択した画像のURL文字列
+  "feedback": string            // 300-400文字程度のフィードバック文字列
 }
 
 注意：
@@ -59,16 +64,16 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
         console.log('Raw response for persona:', text)
         
         try {
-          // テキストからJSONを抽出
-          const jsonResponse = JSON.parse(text);
+          const jsonResponse = JSON.parse(text)
+          console.log('Parsed JSON response:', jsonResponse)
           
           // 必要なフィールドの存在確認
           if (!jsonResponse.selectedImageIndex || !jsonResponse.selectedImageUrl || !jsonResponse.feedback) {
-            console.error('Missing required fields in JSON response');
+            console.error('Missing required fields in JSON response:', jsonResponse)
             return {
               persona,
               selectedImageUrl: imageUrls[0],
-              feedback: "フィードバックの生成に失敗しました。"
+              feedback: "フィードバックの生成に失敗しました。必要なフィールドが不足しています。"
             }
           }
 
@@ -77,19 +82,19 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
             ...jsonResponse
           }
         } catch (parseError) {
-          console.error('Error parsing JSON response:', parseError);
+          console.error('Error parsing JSON response:', parseError, 'Raw text:', text)
           return {
             persona,
             selectedImageUrl: imageUrls[0],
-            feedback: "JSONの解析に失敗しました。"
+            feedback: "JSONの解析に失敗しました。レスポンスの形式が不正です。"
           }
         }
       } catch (aiError) {
-        console.error('Error generating AI response:', aiError);
+        console.error('Error generating AI response:', aiError)
         return {
           persona,
           selectedImageUrl: imageUrls[0],
-          feedback: "AIからのレスポンス生成に失敗しました。"
+          feedback: "AIからのレスポンス生成に失敗しました。再試行してください。"
         }
       }
     })
