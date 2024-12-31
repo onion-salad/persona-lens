@@ -5,6 +5,7 @@ import PersonaList from "@/components/PersonaList";
 import FeedbackForm from "@/components/FeedbackForm";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -15,14 +16,29 @@ const Index = () => {
   const generatePersonas = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/generate-personas");
-      const data = await response.json();
+      const { data, error } = await supabase.functions.invoke('generate-personas');
+      
+      if (error) throw error;
+      
       setPersonas(data.personas);
+      
+      // セッションをデータベースに保存
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('persona_sessions')
+        .insert([
+          { personas: data.personas }
+        ])
+        .select()
+        .single();
+
+      if (sessionError) throw sessionError;
+
       toast({
         title: "ペルソナを生成しました",
         description: "10名のペルソナが作成されました。",
       });
     } catch (error) {
+      console.error('Error generating personas:', error);
       toast({
         title: "エラーが発生しました",
         description: "ペルソナの生成に失敗しました。",
