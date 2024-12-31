@@ -35,24 +35,20 @@ ${persona}
 評価対象の画像：
 ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).join('\n')}
 
-以下の点を考慮してフィードバックを提供してください：
-1. ファーストビューとしての第一印象
-2. ターゲット層（あなた）にとっての訴求力
-3. 改善点や提案
+以下の形式で回答してください：
 
-以下の形式で回答してください。必ず各項目を含めてください：
-
-1. 選択した画像の番号（1から始まる整数）
-2. 選択した画像のURL
-3. フィードバックの内容（300-400文字程度）
-
-回答は必ずJSON形式で、以下のキーを使用してください：
 {
-  "selectedImageIndex": 選択した画像の番号,
-  "selectedImageUrl": "選択した画像のURL",
-  "feedback": "フィードバックの内容"
+  "selectedImageIndex": number, // 選択した画像の番号（1から始まる整数）
+  "selectedImageUrl": string,   // 選択した画像のURL
+  "feedback": {
+    "firstImpression": string,  // 第一印象（100文字程度）
+    "appealPoints": string[],   // 訴求ポイント（3つ程度）
+    "improvements": string[],   // 改善点（2つ程度）
+    "summary": string          // 総評（150文字程度）
+  }
 }
-`
+
+必ず上記のJSON形式で出力してください。キーと値は厳密に従ってください。`
 
       console.log('Sending prompt for persona:', prompt)
 
@@ -63,7 +59,6 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
         console.log('Raw response for persona:', text)
         
         try {
-          // JSONの開始位置と終了位置を見つける
           const jsonStart = text.indexOf('{')
           const jsonEnd = text.lastIndexOf('}') + 1
           const jsonText = text.slice(jsonStart, jsonEnd)
@@ -73,16 +68,6 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
           const jsonResponse = JSON.parse(jsonText)
           console.log('Parsed JSON response:', jsonResponse)
           
-          // 必要なフィールドの存在確認
-          if (!jsonResponse.selectedImageIndex || !jsonResponse.selectedImageUrl || !jsonResponse.feedback) {
-            console.error('Missing required fields in JSON response:', jsonResponse)
-            return {
-              persona,
-              selectedImageUrl: imageUrls[0],
-              feedback: "フィードバックの生成に失敗しました。必要なフィールドが不足しています。"
-            }
-          }
-
           return {
             persona,
             ...jsonResponse
@@ -92,7 +77,12 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
           return {
             persona,
             selectedImageUrl: imageUrls[0],
-            feedback: "JSONの解析に失敗しました。レスポンスの形式が不正です。"
+            feedback: {
+              firstImpression: "JSONの解析に失敗しました",
+              appealPoints: [],
+              improvements: [],
+              summary: "レスポンスの形式が不正です"
+            }
           }
         }
       } catch (aiError) {
@@ -100,7 +90,12 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
         return {
           persona,
           selectedImageUrl: imageUrls[0],
-          feedback: "AIからのレスポンス生成に失敗しました。再試行してください。"
+          feedback: {
+            firstImpression: "AIからのレスポンス生成に失敗しました",
+            appealPoints: [],
+            improvements: [],
+            summary: "再試行してください"
+          }
         }
       }
     })

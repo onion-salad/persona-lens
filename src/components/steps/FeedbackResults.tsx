@@ -1,10 +1,17 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+interface FeedbackData {
+  firstImpression: string;
+  appealPoints: string[];
+  improvements: string[];
+  summary: string;
+}
+
 interface FeedbackResultsProps {
   feedbacks: Array<{
     persona: string;
-    feedback: string;
+    feedback: FeedbackData;
     selectedImageUrl: string;
   }>;
   onNext: () => void;
@@ -30,7 +37,32 @@ const FeedbackResults = ({ feedbacks, onNext }: FeedbackResultsProps) => {
                 />
               </div>
             )}
-            <p className="text-gray-800 whitespace-pre-wrap">{feedback.feedback}</p>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium text-black mb-2">第一印象</h4>
+                <p className="text-gray-800">{feedback.feedback.firstImpression}</p>
+              </div>
+              <div>
+                <h4 className="font-medium text-black mb-2">訴求ポイント</h4>
+                <ul className="list-disc list-inside space-y-1">
+                  {feedback.feedback.appealPoints.map((point, i) => (
+                    <li key={i} className="text-gray-800">{point}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-medium text-black mb-2">改善点</h4>
+                <ul className="list-disc list-inside space-y-1">
+                  {feedback.feedback.improvements.map((improvement, i) => (
+                    <li key={i} className="text-gray-800">{improvement}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-medium text-black mb-2">総評</h4>
+                <p className="text-gray-800">{feedback.feedback.summary}</p>
+              </div>
+            </div>
           </Card>
         ))}
       </div>
