@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Camera } from "lucide-react";
+import * as htmlToImage from 'html-to-image';
 
 interface ContentFormProps {
   onContentSubmit: (content: string) => void;
@@ -17,16 +18,39 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
     onContentSubmit(content);
   };
 
+  const handleScreenshot = async () => {
+    const element = document.getElementById('content-form');
+    if (element) {
+      const dataUrl = await htmlToImage.toPng(element);
+      const link = document.createElement('a');
+      link.download = 'feedback-content.png';
+      link.href = dataUrl;
+      link.click();
+    }
+  };
+
   return (
-    <Card className="p-6">
+    <Card className="p-6" id="content-form">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label
-            htmlFor="content"
-            className="block text-sm font-medium text-gray-700 mb-2"
-          >
-            フィードバックを受けたい内容
-          </label>
+          <div className="flex justify-between items-center mb-2">
+            <label
+              htmlFor="content"
+              className="block text-sm font-medium text-gray-700"
+            >
+              フィードバックを受けたい内容
+            </label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleScreenshot}
+              className="flex items-center gap-2"
+            >
+              <Camera className="h-4 w-4" />
+              スクリーンショット
+            </Button>
+          </div>
           <Textarea
             id="content"
             value={content}

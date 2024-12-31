@@ -18,13 +18,13 @@ const Index = () => {
     setContent(submittedContent);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-personas', {
+      const { data: personasData, error: personasError } = await supabase.functions.invoke('generate-personas', {
         body: { content: submittedContent }
       });
       
-      if (error) throw error;
+      if (personasError) throw personasError;
       
-      setPersonas(data.personas);
+      setPersonas(personasData.personas);
       
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -32,7 +32,7 @@ const Index = () => {
         .from('persona_sessions')
         .insert([
           { 
-            personas: data.personas,
+            personas: personasData.personas,
             user_id: session?.user?.id || null
           }
         ])
@@ -41,15 +41,27 @@ const Index = () => {
 
       if (sessionError) throw sessionError;
 
+      // 生成されたペルソナを使用してフィードバックを生成
+      const { data: feedbackData, error: feedbackError } = await supabase.functions.invoke('generate-feedback', {
+        body: { 
+          content: submittedContent,
+          personas: personasData.personas
+        }
+      });
+
+      if (feedbackError) throw feedbackError;
+      
+      setFeedbacks(feedbackData.feedbacks);
+
       toast({
-        title: "ペルソナを生成しました",
-        description: "入力内容に基づいて適切なペルソナを生成しました。",
+        title: "ペルソナとフィードバックを生成しました",
+        description: "入力内容に基づいて適切なペルソナとフィードバックを生成しました。",
       });
     } catch (error) {
-      console.error('Error generating personas:', error);
+      console.error('Error:', error);
       toast({
         title: "エラーが発生しました",
-        description: "ペルソナの生成に失敗しました。",
+        description: "ペルソナとフィードバックの生成に失敗しました。",
         variant: "destructive",
       });
     } finally {
@@ -78,10 +90,20 @@ const Index = () => {
           {personas.length > 0 && (
             <>
               <PersonaList personas={personas} />
-              <FeedbackForm
-                personas={personas}
-                onFeedbackReceived={setFeedbacks}
-              />
+              <div className="space-y-4">
+                <h2 className="text-2xl font-bold text-gray-900">生成されたフィードバック</h2>
+                <div className="grid grid-cols-1 gap-4">
+                  {feedbacks.map((feedback, index) => (
+                    <Card key={index} className="p-4">
+                      <div className="mb-2">
+                        <h3 className="font-semibold text-gray-700">ペルソナ {index + 1}</h3>
+                        <p className="text-sm text-gray-500">{personas[index]}</p>
+                      </div>
+                      <p className="text-gray-700 whitespace-pre-wrap">{feedback}</p>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             </>
           )}
         </div>
