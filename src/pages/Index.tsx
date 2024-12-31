@@ -1,38 +1,39 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import PersonaList from "@/components/PersonaList";
 import FeedbackForm from "@/components/FeedbackForm";
+import ContentForm from "@/components/ContentForm";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [content, setContent] = useState("");
   const [personas, setPersonas] = useState<string[]>([]);
   const [feedbacks, setFeedbacks] = useState<string[]>([]);
   const { toast } = useToast();
 
-  const generatePersonas = async () => {
+  const handleContentSubmit = async (submittedContent: string) => {
     setIsLoading(true);
+    setContent(submittedContent);
+
     try {
-      // Gemini APIを呼び出してペルソナを生成
-      const { data, error } = await supabase.functions.invoke('generate-personas');
+      const { data, error } = await supabase.functions.invoke('generate-personas', {
+        body: { content: submittedContent }
+      });
       
       if (error) throw error;
       
       setPersonas(data.personas);
       
-      // 現在のユーザーのセッションを取得
       const { data: { session } } = await supabase.auth.getSession();
       
-      // セッションをデータベースに保存
       const { data: sessionData, error: sessionError } = await supabase
         .from('persona_sessions')
         .insert([
           { 
             personas: data.personas,
-            user_id: session?.user?.id || null // ユーザーが認証されていない場合はnull
+            user_id: session?.user?.id || null
           }
         ])
         .select()
@@ -42,7 +43,7 @@ const Index = () => {
 
       toast({
         title: "ペルソナを生成しました",
-        description: "10名のペルソナが作成されました。",
+        description: "入力内容に基づいて適切なペルソナを生成しました。",
       });
     } catch (error) {
       console.error('Error generating personas:', error);
@@ -64,21 +65,15 @@ const Index = () => {
             ペルソナフィードバックジェネレーター
           </h1>
           <p className="text-lg text-gray-600">
-            Gemini APIを使用して10名のペルソナを生成し、フィードバックを取得します
+            フィードバックを受けたい内容を入力し、適切なペルソナからのフィードバックを取得します
           </p>
         </div>
 
         <div className="space-y-8">
-          <Card className="p-6">
-            <Button
-              onClick={generatePersonas}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              ペルソナを生成する
-            </Button>
-          </Card>
+          <ContentForm 
+            onContentSubmit={handleContentSubmit}
+            isLoading={isLoading}
+          />
 
           {personas.length > 0 && (
             <>

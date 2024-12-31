@@ -8,25 +8,30 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const { content } = await req.json();
     const genAI = new GoogleGenerativeAI(Deno.env.get('GEMINI_API_KEY') || '');
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     const prompt = `
-    以下の形式で10人分のペルソナを生成してください：
+    以下の内容に対してフィードバックを提供するのに適した5人のペルソナを生成してください：
+
+    対象内容：${content}
+
+    各ペルソナについて、以下の形式で生成してください：
     - 年齢
     - 性別
     - 職業
     - 趣味
     - 性格
-    - 課題や悩み
-    
-    できるだけ多様な属性と背景を持つペルソナを生成してください。
+    - この内容に関連する経験や視点
+
+    できるだけ多様な属性と背景を持つペルソナを生成し、
+    特に対象内容に関連する経験や知見を持つ人物像を設定してください。
     各ペルソナは3-4行程度の簡潔な文章で表現してください。
     `;
 
@@ -34,7 +39,6 @@ serve(async (req) => {
     const response = await result.response;
     const text = response.text();
     
-    // テキストを行で分割し、空行を除去して各ペルソナを抽出
     const personas = text
       .split('\n')
       .filter(line => line.trim() !== '')
