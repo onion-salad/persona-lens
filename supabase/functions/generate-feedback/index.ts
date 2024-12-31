@@ -34,33 +34,72 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
 2. ターゲット層（あなた）にとっての訴求力
 3. 改善点や提案
 
-以下のJSONフォーマットで回答してください：
+必ず以下のJSON形式で回答してください。JSON形式以外の文章は含めないでください：
+
 {
-  "selectedImageIndex": 選択した画像の番号（1から始まる整数）,
-  "selectedImageUrl": "選択した画像のURL",
-  "feedback": "フィードバックの内容（300-400文字程度）"
+  "selectedImageIndex": <画像の番号（1から始まる整数）>,
+  "selectedImageUrl": "<選択した画像のURL>",
+  "feedback": "<フィードバックの内容（300-400文字程度）>"
 }
+
+注意：
+- 必ずJSON形式で回答してください
+- selectedImageIndexは数値で指定してください（クォートで囲まないでください）
+- selectedImageUrlとfeedbackは文字列でクォートで囲んでください
+- JSON以外の追加のテキストは含めないでください
 `
 
       console.log('Sending prompt for persona:', prompt)
 
-      const result = await model.generateContent(prompt)
-      const response = await result.response
-      const text = response.text()
-      console.log('Received response:', text)
-      
       try {
-        const jsonResponse = JSON.parse(text)
-        return {
-          persona,
-          ...jsonResponse
+        const result = await model.generateContent(prompt)
+        const response = await result.response
+        const text = response.text()
+        console.log('Raw response for persona:', text)
+        
+        try {
+          // テキストからJSONを抽出
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) {
+            console.error('No JSON found in response');
+            return {
+              persona,
+              selectedImageUrl: imageUrls[0],
+              feedback: "フィードバックの生成に失敗しました。"
+            }
+          }
+
+          const jsonText = jsonMatch[0];
+          const jsonResponse = JSON.parse(jsonText);
+          
+          // 必要なフィールドの存在確認
+          if (!jsonResponse.selectedImageIndex || !jsonResponse.selectedImageUrl || !jsonResponse.feedback) {
+            console.error('Missing required fields in JSON response');
+            return {
+              persona,
+              selectedImageUrl: imageUrls[0],
+              feedback: "フィードバックの形式が不正です。"
+            }
+          }
+
+          return {
+            persona,
+            ...jsonResponse
+          }
+        } catch (parseError) {
+          console.error('Error parsing JSON response:', parseError);
+          return {
+            persona,
+            selectedImageUrl: imageUrls[0],
+            feedback: "JSONの解析に失敗しました。"
+          }
         }
-      } catch (error) {
-        console.error('Error parsing JSON response:', error)
+      } catch (aiError) {
+        console.error('Error generating AI response:', aiError);
         return {
           persona,
           selectedImageUrl: imageUrls[0],
-          feedback: "フィードバックの解析に失敗しました。"
+          feedback: "AIからのレスポンス生成に失敗しました。"
         }
       }
     })
