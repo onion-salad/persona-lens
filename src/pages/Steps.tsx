@@ -92,7 +92,7 @@ const Index = () => {
         backgroundPosition: "center",
       }}
     >
-      <div className="absolute inset-0 bg-white/8" />
+      <div className="absolute inset-0 bg-white/15" />
       
       <div className="relative z-10 max-w-4xl mx-auto">
         <div className="text-center mb-12">
