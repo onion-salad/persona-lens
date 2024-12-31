@@ -16,17 +16,24 @@ const Index = () => {
   const generatePersonas = async () => {
     setIsLoading(true);
     try {
+      // Gemini APIを呼び出してペルソナを生成
       const { data, error } = await supabase.functions.invoke('generate-personas');
       
       if (error) throw error;
       
       setPersonas(data.personas);
       
+      // 現在のユーザーのセッションを取得
+      const { data: { session } } = await supabase.auth.getSession();
+      
       // セッションをデータベースに保存
       const { data: sessionData, error: sessionError } = await supabase
         .from('persona_sessions')
         .insert([
-          { personas: data.personas }
+          { 
+            personas: data.personas,
+            user_id: session?.user?.id || null // ユーザーが認証されていない場合はnull
+          }
         ])
         .select()
         .single();
