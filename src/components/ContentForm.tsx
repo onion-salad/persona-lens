@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Loader2, Camera, Upload } from "lucide-react";
-import * as htmlToImage from 'html-to-image';
-import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/use-toast";
+import { Loader2, Upload } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ContentFormProps {
-  onContentSubmit: (content: string, image?: File) => void;
+  onContentSubmit: (content: string, image?: File) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -15,15 +15,19 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
   const [content, setContent] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onContentSubmit(content, image || undefined);
-  };
+  const { toast } = useToast();
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB制限
+        toast({
+          title: "エラー",
+          description: "画像サイズは5MB以下にしてください",
+          variant: "destructive",
+        });
+        return;
+      }
       setImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -33,78 +37,77 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
     }
   };
 
-  const handleScreenshot = async () => {
-    const element = document.getElementById('content-form');
-    if (element) {
-      const dataUrl = await htmlToImage.toPng(element);
-      const link = document.createElement('a');
-      link.download = 'feedback-content.png';
-      link.href = dataUrl;
-      link.click();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content && !image) {
+      toast({
+        title: "エラー",
+        description: "テキストまたは画像を入力してください",
+        variant: "destructive",
+      });
+      return;
     }
+    await onContentSubmit(content, image || undefined);
   };
 
   return (
-    <Card className="p-6" id="content-form">
+    <Card className="p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <div className="flex justify-between items-center mb-2">
-            <label
-              htmlFor="content"
-              className="block text-sm font-medium text-gray-700"
-            >
-              フィードバックを受けたい内容
-            </label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleScreenshot}
-                className="flex items-center gap-2"
-              >
-                <Camera className="h-4 w-4" />
-                スクリーンショット
-              </Button>
-            </div>
-          </div>
+          <label
+            htmlFor="content"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            フィードバックを受けたい内容
+          </label>
           <Textarea
             id="content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="フィードバックを受けたい内容を入力してください"
-            className="min-h-[100px] mb-4"
+            className="min-h-[100px]"
           />
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="image"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                画像をアップロード
-              </label>
-              <div className="flex items-center gap-4">
-                <Input
-                  id="image"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="flex-1"
-                />
-                {imagePreview && (
-                  <img
-                    src={imagePreview}
-                    alt="プレビュー"
-                    className="w-20 h-20 object-cover rounded"
-                  />
-                )}
-              </div>
-            </div>
-          </div>
         </div>
+
+        <div>
+          <label
+            htmlFor="image"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            画像をアップロード (任意)
+          </label>
+          <div className="mt-1 flex items-center gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => document.getElementById("image")?.click()}
+              className="flex items-center gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              画像を選択
+            </Button>
+            <input
+              id="image"
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="hidden"
+            />
+          </div>
+          {imagePreview && (
+            <div className="mt-4">
+              <img
+                src={imagePreview}
+                alt="プレビュー"
+                className="max-w-xs rounded-lg shadow-md"
+              />
+            </div>
+          )}
+        </div>
+
         <Button type="submit" disabled={isLoading || (!content && !image)}>
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          ペルソナを生成する
+          フィードバックを取得
         </Button>
       </form>
     </Card>

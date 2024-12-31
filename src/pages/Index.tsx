@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import PersonaList from "@/components/PersonaList";
-import FeedbackForm from "@/components/FeedbackForm";
 import ContentForm from "@/components/ContentForm";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
