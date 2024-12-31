@@ -23,9 +23,17 @@ const StepIndicator = ({ currentStep, steps, onStepClick }: StepIndicatorProps) 
             )}
             onClick={() => onStepClick?.(index)}
           >
+            {index < steps.length - 1 && (
+              <div
+                className={cn(
+                  "absolute top-4 left-1/2 w-full h-[2px]",
+                  currentStep > index ? "bg-primary" : "bg-gray-300"
+                )}
+              />
+            )}
             <div
               className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2",
+                "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 relative z-10 bg-background",
                 currentStep > index
                   ? "bg-primary text-primary-foreground border-primary"
                   : currentStep === index
@@ -53,14 +61,6 @@ const StepIndicator = ({ currentStep, steps, onStepClick }: StepIndicatorProps) 
                 {step.description}
               </div>
             </div>
-            {index < steps.length - 1 && (
-              <div
-                className={cn(
-                  "absolute top-4 left-1/2 w-full h-[2px]",
-                  currentStep > index ? "bg-primary" : "bg-gray-300"
-                )}
-              />
-            )}
           </div>
         ))}
       </div>
