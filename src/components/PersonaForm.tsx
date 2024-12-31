@@ -34,91 +34,97 @@ const PersonaForm = ({ onSubmit, isLoading }: PersonaFormProps) => {
   };
 
   return (
-    <Card className="p-6">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
-          <div>
-            <Label>主なターゲットの性別</Label>
+    <Card className="p-8 shadow-lg bg-white/80 backdrop-blur-sm">
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <Label className="text-lg font-semibold text-gray-800">
+              主なターゲットの性別
+            </Label>
             <RadioGroup
               value={formData.targetGender}
               onValueChange={(value) =>
                 setFormData({ ...formData, targetGender: value })
               }
-              className="flex gap-4 mt-2"
+              className="flex flex-wrap gap-6 mt-3"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="gender-all" />
-                <Label htmlFor="gender-all">指定なし</Label>
+                <RadioGroupItem value="all" id="gender-all" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="gender-all" className="text-gray-700 cursor-pointer hover:text-purple-600">指定なし</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="male" id="gender-male" />
-                <Label htmlFor="gender-male">男性</Label>
+                <RadioGroupItem value="male" id="gender-male" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="gender-male" className="text-gray-700 cursor-pointer hover:text-purple-600">男性</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="female" id="gender-female" />
-                <Label htmlFor="gender-female">女性</Label>
+                <RadioGroupItem value="female" id="gender-female" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="gender-female" className="text-gray-700 cursor-pointer hover:text-purple-600">女性</Label>
               </div>
             </RadioGroup>
           </div>
 
-          <div>
-            <Label>主なターゲットの年代</Label>
+          <div className="space-y-4">
+            <Label className="text-lg font-semibold text-gray-800">
+              主なターゲットの年代
+            </Label>
             <RadioGroup
               value={formData.targetAge}
               onValueChange={(value) =>
                 setFormData({ ...formData, targetAge: value })
               }
-              className="flex gap-4 mt-2"
+              className="flex flex-wrap gap-6 mt-3"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="age-all" />
-                <Label htmlFor="age-all">指定なし</Label>
+                <RadioGroupItem value="all" id="age-all" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="age-all" className="text-gray-700 cursor-pointer hover:text-purple-600">指定なし</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="10-20" id="age-10-20" />
-                <Label htmlFor="age-10-20">10-20代</Label>
+                <RadioGroupItem value="10-20" id="age-10-20" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="age-10-20" className="text-gray-700 cursor-pointer hover:text-purple-600">10-20代</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="30-40" id="age-30-40" />
-                <Label htmlFor="age-30-40">30-40代</Label>
+                <RadioGroupItem value="30-40" id="age-30-40" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="age-30-40" className="text-gray-700 cursor-pointer hover:text-purple-600">30-40代</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="50-60" id="age-50-60" />
-                <Label htmlFor="age-50-60">50-60代</Label>
+                <RadioGroupItem value="50-60" id="age-50-60" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="age-50-60" className="text-gray-700 cursor-pointer hover:text-purple-600">50-60代</Label>
               </div>
             </RadioGroup>
           </div>
 
-          <div>
-            <Label>主なターゲットの年収</Label>
+          <div className="space-y-4">
+            <Label className="text-lg font-semibold text-gray-800">
+              主なターゲットの年収
+            </Label>
             <RadioGroup
               value={formData.targetIncome}
               onValueChange={(value) =>
                 setFormData({ ...formData, targetIncome: value })
               }
-              className="flex gap-4 mt-2"
+              className="flex flex-wrap gap-6 mt-3"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="income-all" />
-                <Label htmlFor="income-all">指定なし</Label>
+                <RadioGroupItem value="all" id="income-all" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="income-all" className="text-gray-700 cursor-pointer hover:text-purple-600">指定なし</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="low" id="income-low" />
-                <Label htmlFor="income-low">〜400万円</Label>
+                <RadioGroupItem value="low" id="income-low" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="income-low" className="text-gray-700 cursor-pointer hover:text-purple-600">〜400万円</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="middle" id="income-middle" />
-                <Label htmlFor="income-middle">400-800万円</Label>
+                <RadioGroupItem value="middle" id="income-middle" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="income-middle" className="text-gray-700 cursor-pointer hover:text-purple-600">400-800万円</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="high" id="income-high" />
-                <Label htmlFor="income-high">800万円〜</Label>
+                <RadioGroupItem value="high" id="income-high" className="border-purple-400 text-purple-600" />
+                <Label htmlFor="income-high" className="text-gray-700 cursor-pointer hover:text-purple-600">800万円〜</Label>
               </div>
             </RadioGroup>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="serviceDescription">
+          <div className="space-y-3">
+            <Label htmlFor="serviceDescription" className="text-lg font-semibold text-gray-800">
               サービスの概要（どんなサービス・商品か）
             </Label>
             <Textarea
@@ -128,12 +134,14 @@ const PersonaForm = ({ onSubmit, isLoading }: PersonaFormProps) => {
                 setFormData({ ...formData, serviceDescription: e.target.value })
               }
               placeholder="例：オンラインヨガのサブスクリプションサービス"
-              className="min-h-[100px]"
+              className="min-h-[120px] resize-none border-purple-200 focus:border-purple-400 focus:ring-purple-400 placeholder:text-gray-400 text-gray-700"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="usageScene">想定される利用シーン</Label>
+          <div className="space-y-3">
+            <Label htmlFor="usageScene" className="text-lg font-semibold text-gray-800">
+              想定される利用シーン
+            </Label>
             <Textarea
               id="usageScene"
               value={formData.usageScene}
@@ -141,7 +149,7 @@ const PersonaForm = ({ onSubmit, isLoading }: PersonaFormProps) => {
                 setFormData({ ...formData, usageScene: e.target.value })
               }
               placeholder="例：在宅勤務の合間にリフレッシュしたい時、朝の準備時間を有効活用したい時"
-              className="min-h-[100px]"
+              className="min-h-[120px] resize-none border-purple-200 focus:border-purple-400 focus:ring-purple-400 placeholder:text-gray-400 text-gray-700"
             />
           </div>
         </div>
@@ -149,11 +157,11 @@ const PersonaForm = ({ onSubmit, isLoading }: PersonaFormProps) => {
         <Button
           type="submit"
           disabled={!formData.serviceDescription || !formData.usageScene || isLoading}
-          className="w-full"
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors duration-200"
         >
           {isLoading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               生成中...
             </>
           ) : (
