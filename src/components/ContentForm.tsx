@@ -3,43 +3,63 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Upload } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Loader2, Upload, X } from "lucide-react";
 
 interface ContentFormProps {
-  onContentSubmit: (content: string, image?: File) => Promise<void>;
+  onContentSubmit: (content: string, images?: File[]) => Promise<void>;
   isLoading: boolean;
 }
 
 const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
   const [content, setContent] = useState("");
-  const [image, setImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [images, setImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const { toast } = useToast();
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB制限
-        toast({
-          title: "エラー",
-          description: "画像サイズは5MB以下にしてください",
-          variant: "destructive",
-        });
-        return;
-      }
-      setImage(file);
+    const files = Array.from(e.target.files || []);
+    const totalSize = files.reduce((acc, file) => acc + file.size, 0);
+    const existingSize = images.reduce((acc, file) => acc + file.size, 0);
+
+    if (totalSize + existingSize > 15 * 1024 * 1024) { // 15MB制限
+      toast({
+        title: "エラー",
+        description: "画像の合計サイズは15MB以下にしてください",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (images.length + files.length > 5) { // 最大5枚まで
+      toast({
+        title: "エラー",
+        description: "画像は最大5枚までアップロードできます",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newImages = [...images, ...files];
+    setImages(newImages);
+
+    // プレビューの生成
+    files.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        setImagePreviews(prev => [...prev, reader.result as string]);
       };
       reader.readAsDataURL(file);
-    }
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content && !image) {
+    if (!content && images.length === 0) {
       toast({
         title: "エラー",
         description: "テキストまたは画像を入力してください",
@@ -47,7 +67,7 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
       });
       return;
     }
-    await onContentSubmit(content, image || undefined);
+    await onContentSubmit(content, images.length > 0 ? images : undefined);
   };
 
   return (
@@ -74,7 +94,7 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
             htmlFor="image"
             className="block text-sm font-medium text-gray-700 mb-2"
           >
-            画像をアップロード (任意)
+            画像をアップロード (最大5枚まで)
           </label>
           <div className="mt-1 flex items-center gap-4">
             <Button
@@ -82,6 +102,7 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
               variant="outline"
               onClick={() => document.getElementById("image")?.click()}
               className="flex items-center gap-2"
+              disabled={images.length >= 5}
             >
               <Upload className="h-4 w-4" />
               画像を選択
@@ -92,20 +113,34 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
               accept="image/*"
               onChange={handleImageChange}
               className="hidden"
+              multiple
             />
           </div>
-          {imagePreview && (
-            <div className="mt-4">
-              <img
-                src={imagePreview}
-                alt="プレビュー"
-                className="max-w-xs rounded-lg shadow-md"
-              />
+          {imagePreviews.length > 0 && (
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+              {imagePreviews.map((preview, index) => (
+                <div key={index} className="relative">
+                  <img
+                    src={preview}
+                    alt={`プレビュー ${index + 1}`}
+                    className="w-full rounded-lg shadow-md"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2"
+                    onClick={() => removeImage(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        <Button type="submit" disabled={isLoading || (!content && !image)}>
+        <Button type="submit" disabled={isLoading || (!content && images.length === 0)}>
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           フィードバックを取得
         </Button>

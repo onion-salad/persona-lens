@@ -12,31 +12,34 @@ const Index = () => {
   const [feedbacks, setFeedbacks] = useState<string[]>([]);
   const { toast } = useToast();
 
-  const handleContentSubmit = async (submittedContent: string, image?: File) => {
+  const handleContentSubmit = async (submittedContent: string, images?: File[]) => {
     setIsLoading(true);
     setContent(submittedContent);
 
     try {
-      let imageUrl = '';
-      if (image) {
-        const fileName = `${Math.random().toString(36).substring(7)}-${image.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('feedback-images')
-          .upload(fileName, image);
+      const imageUrls: string[] = [];
+      
+      if (images && images.length > 0) {
+        for (const image of images) {
+          const fileName = `${Math.random().toString(36).substring(7)}-${image.name}`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('feedback-images')
+            .upload(fileName, image);
 
-        if (uploadError) throw uploadError;
+          if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('feedback-images')
-          .getPublicUrl(fileName);
-          
-        imageUrl = publicUrl;
+          const { data: { publicUrl } } = supabase.storage
+            .from('feedback-images')
+            .getPublicUrl(fileName);
+            
+          imageUrls.push(publicUrl);
+        }
       }
 
       const { data: personasData, error: personasError } = await supabase.functions.invoke('generate-personas', {
         body: { 
           content: submittedContent,
-          imageUrl: imageUrl
+          imageUrls: imageUrls
         }
       });
       
@@ -62,7 +65,7 @@ const Index = () => {
       const { data: feedbackData, error: feedbackError } = await supabase.functions.invoke('generate-feedback', {
         body: { 
           content: submittedContent,
-          imageUrl: imageUrl,
+          imageUrls: imageUrls,
           personas: personasData.personas
         }
       });

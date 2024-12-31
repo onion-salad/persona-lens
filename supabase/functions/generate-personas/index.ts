@@ -13,15 +13,21 @@ serve(async (req) => {
   }
 
   try {
-    const { content } = await req.json()
+    const { content, imageUrls } = await req.json()
     const genAI = new GoogleGenerativeAI(Deno.env.get('GEMINI_API_KEY') || '')
     const model = genAI.getGenerativeModel({ model: "gemini-pro" })
 
-    const prompt = `
+    let prompt = `
     以下の内容に対してフィードバックを提供するのに適した10人のペルソナを生成してください：
 
     対象内容：${content}
+    `
 
+    if (imageUrls && imageUrls.length > 0) {
+      prompt += `\n\n以下の画像も評価対象に含まれます：\n${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).join('\n')}`
+    }
+
+    prompt += `
     各ペルソナについて、以下の形式で生成してください：
     - 年齢
     - 性別

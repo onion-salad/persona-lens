@@ -13,12 +13,12 @@ serve(async (req) => {
   }
 
   try {
-    const { content, personas } = await req.json()
+    const { content, imageUrls, personas } = await req.json()
     const genAI = new GoogleGenerativeAI(Deno.env.get('GEMINI_API_KEY') || '')
     const model = genAI.getGenerativeModel({ model: "gemini-pro" })
 
     const feedbackPromises = personas.map(async (persona: string) => {
-      const prompt = `
+      let prompt = `
       あなたは以下のペルソナとして、提示された内容にフィードバックを提供してください：
 
       ペルソナ設定：
@@ -26,7 +26,13 @@ serve(async (req) => {
 
       フィードバックする内容：
       ${content}
+      `
 
+      if (imageUrls && imageUrls.length > 0) {
+        prompt += `\n\n以下の画像も評価対象に含まれます：\n${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).join('\n')}`
+      }
+
+      prompt += `
       このペルソナの視点から、以下の点を考慮してフィードバックを提供してください：
       - ペルソナの経験や背景に基づいた具体的な意見
       - 改善点や提案
