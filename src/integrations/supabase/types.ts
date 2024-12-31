@@ -203,6 +203,67 @@ export type Database = {
           },
         ]
       }
+      persona_feedbacks: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          persona_info: Json
+          session_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          persona_info: Json
+          session_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          persona_info?: Json
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_feedbacks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "persona_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      persona_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          personas: Json
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          personas: Json
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          personas?: Json
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
