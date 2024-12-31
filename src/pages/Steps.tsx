@@ -1,5 +1,5 @@
 import { useState } from "react";
-import PersonaForm from "@/components/PersonaForm";
+import PersonaForm, { PersonaFormData } from "@/components/PersonaForm";
 import ContentForm from "@/components/ContentForm";
 import StepIndicator from "@/components/StepIndicator";
 import { useToast } from "@/components/ui/use-toast";
