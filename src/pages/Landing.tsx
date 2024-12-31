@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import FeedbackButton from "@/components/FeedbackButton";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -13,10 +14,10 @@ const Landing = () => {
         backgroundPosition: "center",
       }}
     >
-      {/* オーバーレイ */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/60" />
       
-      {/* コンテンツ */}
+      <FeedbackButton />
+      
       <div className="relative z-10 max-w-4xl mx-auto text-center px-4">
         <h1 className="text-7xl font-bold text-white mb-6">
           Persona Lens

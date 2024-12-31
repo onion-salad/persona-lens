@@ -6,6 +6,7 @@ import ContentCreation from "@/components/steps/ContentCreation";
 import FeedbackResults from "@/components/steps/FeedbackResults";
 import AnalyticsView from "@/components/steps/AnalyticsView";
 import { Feedback } from "@/types/feedback";
+import FeedbackButton from "@/components/FeedbackButton";
 
 const steps = [
   {
@@ -93,6 +94,8 @@ const Index = () => {
       }}
     >
       <div className="absolute inset-0 bg-white/15" />
+      
+      <FeedbackButton />
       
       <div className="relative z-10 max-w-4xl mx-auto">
         <div className="text-center mb-12">
