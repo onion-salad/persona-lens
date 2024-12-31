@@ -1,11 +1,8 @@
 import FeedbackAnalytics from "@/components/FeedbackAnalytics";
+import { Feedback } from "@/types/feedback";
 
 interface AnalyticsViewProps {
-  feedbacks: Array<{
-    persona: string;
-    feedback: string;
-    selectedImageUrl: string;
-  }>;
+  feedbacks: Feedback[];
 }
 
 const AnalyticsView = ({ feedbacks }: AnalyticsViewProps) => {
