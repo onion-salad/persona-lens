@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
 
 interface PersonaFormProps {
   onSubmit: (formData: PersonaFormData) => void;
+  isLoading?: boolean;
 }
 
 export interface PersonaFormData {
@@ -18,7 +19,7 @@ export interface PersonaFormData {
   usageScene: string;
 }
 
-const PersonaForm = ({ onSubmit }: PersonaFormProps) => {
+const PersonaForm = ({ onSubmit, isLoading }: PersonaFormProps) => {
   const [formData, setFormData] = useState<PersonaFormData>({
     targetGender: "all",
     targetAge: "all",
@@ -147,10 +148,17 @@ const PersonaForm = ({ onSubmit }: PersonaFormProps) => {
 
         <Button
           type="submit"
-          disabled={!formData.serviceDescription || !formData.usageScene}
+          disabled={!formData.serviceDescription || !formData.usageScene || isLoading}
           className="w-full"
         >
-          ペルソナを生成
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              生成中...
+            </>
+          ) : (
+            'ペルソナを生成'
+          )}
         </Button>
       </form>
     </Card>

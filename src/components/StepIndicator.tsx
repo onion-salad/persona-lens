@@ -6,9 +6,10 @@ interface StepIndicatorProps {
     title: string;
     description: string;
   }[];
+  onStepClick?: (stepIndex: number) => void;
 }
 
-const StepIndicator = ({ currentStep, steps }: StepIndicatorProps) => {
+const StepIndicator = ({ currentStep, steps, onStepClick }: StepIndicatorProps) => {
   return (
     <div className="w-full py-4">
       <div className="flex justify-between">
@@ -16,9 +17,11 @@ const StepIndicator = ({ currentStep, steps }: StepIndicatorProps) => {
           <div
             key={index}
             className={cn(
-              "flex flex-col items-center relative w-full",
-              index === steps.length - 1 ? "flex-1" : "flex-1"
+              "flex flex-col items-center relative w-full cursor-pointer",
+              index === steps.length - 1 ? "flex-1" : "flex-1",
+              index <= currentStep ? "hover:opacity-80" : "cursor-not-allowed opacity-50"
             )}
+            onClick={() => onStepClick?.(index)}
           >
             <div
               className={cn(

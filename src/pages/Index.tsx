@@ -6,6 +6,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import PersonaForm, { PersonaFormData } from "@/components/PersonaForm";
 import StepIndicator from "@/components/StepIndicator";
+import FeedbackAnalytics from "@/components/FeedbackAnalytics";
+import { Button } from "@/components/ui/button";
 
 const steps = [
   {
@@ -23,6 +25,10 @@ const steps = [
   {
     title: "フィードバック",
     description: "評価結果を確認",
+  },
+  {
+    title: "分析",
+    description: "フィードバック分析",
   },
 ];
 
@@ -128,12 +134,19 @@ const Index = () => {
     }
   };
 
+  const handleStepClick = (stepIndex: number) => {
+    if (stepIndex <= currentStep) {
+      setCurrentStep(stepIndex);
+    }
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case 0:
         return (
           <PersonaForm
             onSubmit={handlePersonaFormSubmit}
+            isLoading={isLoading}
           />
         );
       case 1:
@@ -141,12 +154,12 @@ const Index = () => {
           <div className="space-y-4">
             <PersonaList personas={personas} />
             <div className="flex justify-end">
-              <button
+              <Button
                 onClick={() => setCurrentStep(2)}
                 className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90"
               >
                 次へ進む
-              </button>
+              </Button>
             </div>
           </div>
         );
@@ -181,8 +194,18 @@ const Index = () => {
                 </Card>
               ))}
             </div>
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setCurrentStep(4)}
+                className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90"
+              >
+                分析を見る
+              </Button>
+            </div>
           </div>
         );
+      case 4:
+        return <FeedbackAnalytics feedbacks={feedbacks} />;
       default:
         return null;
     }
@@ -201,7 +224,11 @@ const Index = () => {
         </div>
 
         <div className="mb-8">
-          <StepIndicator currentStep={currentStep} steps={steps} />
+          <StepIndicator 
+            currentStep={currentStep} 
+            steps={steps} 
+            onStepClick={handleStepClick}
+          />
         </div>
 
         <div className="space-y-8">
