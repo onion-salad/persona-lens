@@ -13,38 +13,51 @@ serve(async (req) => {
   }
 
   try {
-    const { content, imageUrls, personas } = await req.json()
+    const { imageUrls, personas } = await req.json()
     const genAI = new GoogleGenerativeAI(Deno.env.get('GEMINI_API_KEY') || '')
     const model = genAI.getGenerativeModel({ model: "gemini-pro" })
 
     const feedbackPromises = personas.map(async (persona: string) => {
       let prompt = `
-      あなたは以下のペルソナとして、提示された内容にフィードバックを提供してください：
+      あなたは以下のペルソナになりきって、提示された複数のファーストビューの中から最適なものを選び、フィードバックを提供してください。
 
-      ペルソナ設定：
+      ペルソナ情報：
       ${persona}
 
-      フィードバックする内容：
-      ${content}
-      `
+      評価対象の画像：
+      ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).join('\n')}
 
-      if (imageUrls && imageUrls.length > 0) {
-        prompt += `\n\n以下の画像も評価対象に含まれます：\n${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).join('\n')}`
+      以下の点を考慮して、JSONフォーマットで回答してください：
+      1. どの画像が最も適切か
+      2. その理由（ペルソナの視点から）
+      3. 改善点や提案
+
+      回答フォーマット：
+      {
+        "selectedImageIndex": 画像の番号（1から始まる整数）,
+        "selectedImageUrl": "選択した画像のURL",
+        "feedback": "フィードバックの内容（300-400文字程度）"
       }
-
-      prompt += `
-      このペルソナの視点から、以下の点を考慮してフィードバックを提供してください：
-      - ペルソナの経験や背景に基づいた具体的な意見
-      - 改善点や提案
-      - 良い点や評価できる点
-      - 実践的なアドバイス
-
-      フィードバックは300-400文字程度で、具体的かつ建設的な内容にしてください。
       `
 
       const result = await model.generateContent(prompt)
       const response = await result.response
-      return response.text()
+      const text = response.text()
+      
+      try {
+        const jsonResponse = JSON.parse(text)
+        return {
+          persona,
+          ...jsonResponse
+        }
+      } catch (error) {
+        console.error('Error parsing JSON response:', error)
+        return {
+          persona,
+          selectedImageUrl: imageUrls[0],
+          feedback: "フィードバックの解析に失敗しました。"
+        }
+      }
     })
 
     const feedbacks = await Promise.all(feedbackPromises)

@@ -13,34 +13,36 @@ serve(async (req) => {
   }
 
   try {
-    const { content, imageUrls } = await req.json()
+    const { targetGender, targetAge, targetIncome, serviceDescription, usageScene } = await req.json()
     const genAI = new GoogleGenerativeAI(Deno.env.get('GEMINI_API_KEY') || '')
     const model = genAI.getGenerativeModel({ model: "gemini-pro" })
 
     let prompt = `
-    以下の内容に対してフィードバックを提供するのに適した10人のペルソナを生成してください：
+    以下の条件に基づいて、サービスのターゲットとなる10人の具体的なペルソナを生成してください。
 
-    対象内容：${content}
-    `
+    サービス情報：
+    - サービス概要：${serviceDescription}
+    - 利用シーン：${usageScene}
 
-    if (imageUrls && imageUrls.length > 0) {
-      prompt += `\n\n以下の画像も評価対象に含まれます：\n${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).join('\n')}`
-    }
+    ターゲット条件：
+    - 性別：${targetGender === 'all' ? '指定なし' : targetGender === 'male' ? '男性' : '女性'}
+    - 年代：${targetAge === 'all' ? '指定なし' : targetAge}
+    - 年収：${targetIncome === 'all' ? '指定なし' : targetIncome === 'low' ? '〜400万円' : targetIncome === 'middle' ? '400-800万円' : '800万円〜'}
 
-    prompt += `
-    各ペルソナについて、以下の形式で生成してください：
+    各ペルソナについて、以下の要素を含めて具体的に描写してください：
     - 年齢
     - 性別
     - 職業
-    - 趣味
-    - 性格
-    - この内容に関連する経験や視点
+    - 年収
+    - 家族構成
+    - 趣味・関心
+    - 日常生活での課題
+    - このサービスに対する期待や不安
 
-    できるだけ多様な属性と背景を持つペルソナを生成し、
-    特に対象内容に関連する経験や知見を持つ人物像を設定してください。
-    各ペルソナは3-4行程度の簡潔な文章で表現してください。
+    ペルソナは現実的で具体的な人物像とし、多様な視点を持つように設定してください。
+    各ペルソナは3-4行の文章で表現し、箇条書きは避けてください。
 
-    ペルソナの出力形式は以下のようにしてください：
+    出力形式：
     1. [ペルソナの説明]
     2. [ペルソナの説明]
     ...
