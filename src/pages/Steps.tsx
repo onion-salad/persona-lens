@@ -5,6 +5,7 @@ import PersonaConfirmation from "@/components/steps/PersonaConfirmation";
 import ContentCreation from "@/components/steps/ContentCreation";
 import FeedbackResults from "@/components/steps/FeedbackResults";
 import AnalyticsView from "@/components/steps/AnalyticsView";
+import { Feedback } from "@/types/feedback";
 
 const steps = [
   {
@@ -32,11 +33,7 @@ const steps = [
 const Index = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [personas, setPersonas] = useState<string[]>([]);
-  const [feedbacks, setFeedbacks] = useState<Array<{
-    persona: string;
-    feedback: string;
-    selectedImageUrl: string;
-  }>>([]);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
 
   const handleStepClick = (stepIndex: number) => {
     if (stepIndex <= currentStep) {

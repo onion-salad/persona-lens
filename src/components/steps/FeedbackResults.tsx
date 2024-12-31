@@ -1,19 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-
-interface FeedbackData {
-  firstImpression: string;
-  appealPoints: string[];
-  improvements: string[];
-  summary: string;
-}
+import { FeedbackData, Feedback } from "@/types/feedback";
 
 interface FeedbackResultsProps {
-  feedbacks: Array<{
-    persona: string;
-    feedback: FeedbackData;
-    selectedImageUrl: string;
-  }>;
+  feedbacks: Feedback[];
   onNext: () => void;
 }
 

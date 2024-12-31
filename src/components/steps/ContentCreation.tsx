@@ -2,14 +2,11 @@ import { useState } from "react";
 import ContentForm from "@/components/ContentForm";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Feedback } from "@/types/feedback";
 
 interface ContentCreationProps {
   personas: string[];
-  onFeedbackGenerated: (feedbacks: Array<{
-    persona: string;
-    feedback: string;
-    selectedImageUrl: string;
-  }>) => void;
+  onFeedbackGenerated: (feedbacks: Feedback[]) => void;
 }
 
 const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps) => {
