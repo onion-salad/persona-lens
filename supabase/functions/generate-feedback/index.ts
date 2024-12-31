@@ -17,7 +17,13 @@ serve(async (req) => {
     console.log('Received request:', { imageUrls, personas })
 
     const genAI = new GoogleGenerativeAI(Deno.env.get('GEMINI_API_KEY') || '')
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-pro",
+      generationConfig: {
+        temperature: 0.9,
+        response_mime_type: "application/json"
+      }
+    })
 
     const feedbackPromises = personas.map(async (persona: string) => {
       const prompt = `
@@ -29,21 +35,16 @@ ${persona}
 評価対象の画像：
 ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).join('\n')}
 
-以下の点を考慮してフィードバックを提供してください：
-1. ファーストビューとしての第一印象
-2. ターゲット層（あなた）にとっての訴求力
-3. 改善点や提案
-
-必ず以下のJSON形式で回答してください。JSON形式以外の文章は含めないでください：
+以下のJSONスキーマに従って回答してください：
 
 {
-  "selectedImageIndex": <画像の番号（1から始まる整数）>,
-  "selectedImageUrl": "<選択した画像のURL>",
-  "feedback": "<フィードバックの内容（300-400文字程度）>"
+  "selectedImageIndex": number, // 画像の番号（1から始まる整数）
+  "selectedImageUrl": string,   // 選択した画像のURL
+  "feedback": string           // フィードバックの内容（300-400文字程度）
 }
 
 注意：
-- 必ずJSON形式で回答してください
+- 必ずJSONスキーマに従った形式で回答してください
 - selectedImageIndexは数値で指定してください（クォートで囲まないでください）
 - selectedImageUrlとfeedbackは文字列でクォートで囲んでください
 - JSON以外の追加のテキストは含めないでください
@@ -59,18 +60,7 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
         
         try {
           // テキストからJSONを抽出
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) {
-            console.error('No JSON found in response');
-            return {
-              persona,
-              selectedImageUrl: imageUrls[0],
-              feedback: "フィードバックの生成に失敗しました。"
-            }
-          }
-
-          const jsonText = jsonMatch[0];
-          const jsonResponse = JSON.parse(jsonText);
+          const jsonResponse = JSON.parse(text);
           
           // 必要なフィールドの存在確認
           if (!jsonResponse.selectedImageIndex || !jsonResponse.selectedImageUrl || !jsonResponse.feedback) {
@@ -78,7 +68,7 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
             return {
               persona,
               selectedImageUrl: imageUrls[0],
-              feedback: "フィードバックの形式が不正です。"
+              feedback: "フィードバックの生成に失敗しました。"
             }
           }
 
