@@ -21,7 +21,7 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
     const totalSize = files.reduce((acc, file) => acc + file.size, 0);
     const existingSize = images.reduce((acc, file) => acc + file.size, 0);
 
-    if (totalSize + existingSize > 15 * 1024 * 1024) { // 15MB制限
+    if (totalSize + existingSize > 15 * 1024 * 1024) {
       toast({
         title: "エラー",
         description: "画像の合計サイズは15MB以下にしてください",
@@ -30,7 +30,7 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
       return;
     }
 
-    if (images.length + files.length > 5) { // 最大5枚まで
+    if (images.length + files.length > 5) {
       toast({
         title: "エラー",
         description: "画像は最大5枚までアップロードできます",
@@ -39,7 +39,16 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
       return;
     }
 
-    const newImages = [...images, ...files];
+    // ファイル名を安全な形式に変換
+    const safeFiles = files.map(file => {
+      // 拡張子を取得
+      const extension = file.name.split('.').pop() || '';
+      // 新しいBlobを作成し、安全なファイル名を付与
+      const safeFileName = `${crypto.randomUUID()}.${extension}`;
+      return new File([file], safeFileName, { type: file.type });
+    });
+
+    const newImages = [...images, ...safeFiles];
     setImages(newImages);
 
     // プレビューの生成
