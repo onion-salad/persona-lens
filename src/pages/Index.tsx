@@ -31,7 +31,7 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [personas, setPersonas] = useState<string[]>([]);
   const [feedbacks, setFeedbacks] = useState<
-    Array<{ persona: string; feedback: string; selectedImage: string }>
+    Array<{ persona: string; feedback: string; selectedImageUrl: string }>
   >([]);
   const { toast } = useToast();
 
@@ -71,35 +71,43 @@ const Index = () => {
 
   const handleContentSubmit = async (content: string, images?: File[]) => {
     setIsLoading(true);
+    const imageUrls: string[] = [];
 
     try {
-      const imageUrls: string[] = [];
-      
       if (images && images.length > 0) {
         for (const image of images) {
-          const fileName = `${Math.random().toString(36).substring(7)}-${image.name}`;
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('feedback-images')
-            .upload(fileName, image);
+            .upload(image.name, image);
 
-          if (uploadError) throw uploadError;
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            throw uploadError;
+          }
 
           const { data: { publicUrl } } = supabase.storage
             .from('feedback-images')
-            .getPublicUrl(fileName);
+            .getPublicUrl(image.name);
             
           imageUrls.push(publicUrl);
         }
       }
 
+      console.log('Uploading images completed. URLs:', imageUrls);
+
       const { data: feedbackData, error: feedbackError } = await supabase.functions.invoke('generate-feedback', {
         body: { 
-          imageUrls: imageUrls,
-          personas: personas
+          imageUrls,
+          personas
         }
       });
 
-      if (feedbackError) throw feedbackError;
+      console.log('Feedback response:', feedbackData);
+
+      if (feedbackError) {
+        console.error('Feedback error:', feedbackError);
+        throw feedbackError;
+      }
       
       setFeedbacks(feedbackData.feedbacks);
       setCurrentStep(3);
@@ -160,13 +168,15 @@ const Index = () => {
                     <h3 className="font-semibold text-gray-700">ペルソナ {index + 1}</h3>
                     <p className="text-sm text-gray-500">{feedback.persona}</p>
                   </div>
-                  <div className="mb-4">
-                    <img
-                      src={feedback.selectedImage}
-                      alt={`選択された画像 ${index + 1}`}
-                      className="w-full rounded-lg shadow-md"
-                    />
-                  </div>
+                  {feedback.selectedImageUrl && (
+                    <div className="mb-4">
+                      <img
+                        src={feedback.selectedImageUrl}
+                        alt={`選択された画像 ${index + 1}`}
+                        className="w-full rounded-lg shadow-md"
+                      />
+                    </div>
+                  )}
                   <p className="text-gray-700 whitespace-pre-wrap">{feedback.feedback}</p>
                 </Card>
               ))}

@@ -14,35 +14,40 @@ serve(async (req) => {
 
   try {
     const { imageUrls, personas } = await req.json()
+    console.log('Received request:', { imageUrls, personas })
+
     const genAI = new GoogleGenerativeAI(Deno.env.get('GEMINI_API_KEY') || '')
     const model = genAI.getGenerativeModel({ model: "gemini-pro" })
 
     const feedbackPromises = personas.map(async (persona: string) => {
-      let prompt = `
-      あなたは以下のペルソナになりきって、提示された複数のファーストビューの中から最適なものを選び、フィードバックを提供してください。
+      const prompt = `
+あなたは以下のペルソナになりきって、提示された複数のファーストビューの中から最適なものを選び、フィードバックを提供してください。
 
-      ペルソナ情報：
-      ${persona}
+ペルソナ情報：
+${persona}
 
-      評価対象の画像：
-      ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).join('\n')}
+評価対象の画像：
+${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).join('\n')}
 
-      以下の点を考慮して、JSONフォーマットで回答してください：
-      1. どの画像が最も適切か
-      2. その理由（ペルソナの視点から）
-      3. 改善点や提案
+以下の点を考慮してフィードバックを提供してください：
+1. ファーストビューとしての第一印象
+2. ターゲット層（あなた）にとっての訴求力
+3. 改善点や提案
 
-      回答フォーマット：
-      {
-        "selectedImageIndex": 画像の番号（1から始まる整数）,
-        "selectedImageUrl": "選択した画像のURL",
-        "feedback": "フィードバックの内容（300-400文字程度）"
-      }
-      `
+以下のJSONフォーマットで回答してください：
+{
+  "selectedImageIndex": 選択した画像の番号（1から始まる整数）,
+  "selectedImageUrl": "選択した画像のURL",
+  "feedback": "フィードバックの内容（300-400文字程度）"
+}
+`
+
+      console.log('Sending prompt for persona:', prompt)
 
       const result = await model.generateContent(prompt)
       const response = await result.response
       const text = response.text()
+      console.log('Received response:', text)
       
       try {
         const jsonResponse = JSON.parse(text)
