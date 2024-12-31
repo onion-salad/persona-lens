@@ -212,11 +212,22 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
+    <div 
+      className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 relative"
+      style={{
+        backgroundImage: "url('/lovable-uploads/a7897bdf-655d-46b8-b190-acbfad79648c.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {/* 背景オーバーレイ */}
+      <div className="absolute inset-0 bg-white/95" />
+      
+      {/* メインコンテンツ */}
+      <div className="relative z-10 max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Persona Vision
+            Persona Lens
           </h1>
           <p className="text-lg text-gray-600">
             多様なペルソナの視点からファーストビューの評価を得られます
