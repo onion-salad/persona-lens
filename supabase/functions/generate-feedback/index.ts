@@ -18,10 +18,10 @@ serve(async (req) => {
 
     const genAI = new GoogleGenerativeAI(Deno.env.get('GEMINI_API_KEY') || '')
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro",
+      model: "gemini-pro",
       generationConfig: {
         temperature: 0.7,
-        response_mime_type: "application/json"
+        maxOutputTokens: 1024
       }
     })
 
@@ -40,19 +40,18 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
 2. ターゲット層（あなた）にとっての訴求力
 3. 改善点や提案
 
-以下のJSONスキーマに従って回答してください：
+以下の形式で回答してください。必ず各項目を含めてください：
 
+1. 選択した画像の番号（1から始まる整数）
+2. 選択した画像のURL
+3. フィードバックの内容（300-400文字程度）
+
+回答は必ずJSON形式で、以下のキーを使用してください：
 {
-  "selectedImageIndex": number,  // 1から始まる整数を指定
-  "selectedImageUrl": string,    // 選択した画像のURL文字列
-  "feedback": string            // 300-400文字程度のフィードバック文字列
+  "selectedImageIndex": 選択した画像の番号,
+  "selectedImageUrl": "選択した画像のURL",
+  "feedback": "フィードバックの内容"
 }
-
-注意：
-- 必ずJSONスキーマに従った形式で回答してください
-- selectedImageIndexは数値で指定してください（クォートで囲まないでください）
-- selectedImageUrlとfeedbackは文字列でクォートで囲んでください
-- JSON以外の追加のテキストは含めないでください
 `
 
       console.log('Sending prompt for persona:', prompt)
@@ -64,7 +63,14 @@ ${imageUrls.map((url: string, index: number) => `画像${index + 1}: ${url}`).jo
         console.log('Raw response for persona:', text)
         
         try {
-          const jsonResponse = JSON.parse(text)
+          // JSONの開始位置と終了位置を見つける
+          const jsonStart = text.indexOf('{')
+          const jsonEnd = text.lastIndexOf('}') + 1
+          const jsonText = text.slice(jsonStart, jsonEnd)
+          
+          console.log('Extracted JSON text:', jsonText)
+          
+          const jsonResponse = JSON.parse(jsonText)
           console.log('Parsed JSON response:', jsonResponse)
           
           // 必要なフィールドの存在確認
