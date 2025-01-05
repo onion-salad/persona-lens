@@ -8,7 +8,7 @@ export interface FeedbackData {
 export interface Feedback {
   persona: string;
   feedback: FeedbackData;
-  selectedImageUrl: string;
+  selectedImageUrl?: string;
 }
 
 export interface ExecutionHistoryItem {
@@ -21,4 +21,5 @@ export interface ExecutionHistoryItem {
   personas: string[];
   feedbacks: Feedback[];
   created_at: string;
+  user_id: string | null;
 }

@@ -26,9 +26,16 @@ export function HistorySidebar() {
 
   const fetchHistory = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
       const { data, error } = await supabase
         .from("execution_history")
         .select("*")
+        .eq('user_id', user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -36,8 +43,17 @@ export function HistorySidebar() {
       // データの型を変換
       const typedData: ExecutionHistoryItem[] = data?.map(item => ({
         ...item,
-        personas: Array.isArray(item.personas) ? item.personas : [],
-        feedbacks: Array.isArray(item.feedbacks) ? item.feedbacks : []
+        personas: Array.isArray(item.personas) ? item.personas.map(p => String(p)) : [],
+        feedbacks: Array.isArray(item.feedbacks) ? item.feedbacks.map(f => ({
+          persona: String(f.persona),
+          feedback: {
+            firstImpression: String(f.feedback.firstImpression),
+            appealPoints: f.feedback.appealPoints.map(String),
+            improvements: f.feedback.improvements.map(String),
+            summary: String(f.feedback.summary)
+          },
+          selectedImageUrl: f.selectedImageUrl ? String(f.selectedImageUrl) : undefined
+        })) : []
       })) || [];
 
       setHistory(typedData);
