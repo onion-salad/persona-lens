@@ -79,10 +79,7 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
 
       setHistory(typedData);
       
-      // 最新の履歴IDを現在のものとして設定
-      if (typedData.length > 0 && location.pathname === '/steps') {
-        setCurrentHistoryId(typedData[0].id);
-      }
+      // 最新の履歴の自動選択を削除
     } catch (error) {
       console.error("Error fetching history:", error);
       toast({
@@ -105,10 +102,7 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
   };
 
   const handleNewConversation = async () => {
-    // 新しい会話を始める前に現在の履歴IDをリセット
     setCurrentHistoryId(null);
-    
-    // ステップをリセットするためのステート更新
     navigate("/steps", { 
       replace: true,
       state: { 

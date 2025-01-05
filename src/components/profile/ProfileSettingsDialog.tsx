@@ -19,7 +19,7 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -31,7 +31,9 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
         .single();
       return profile;
     },
-    enabled: open, // モーダルが開いているときのみクエリを実行
+    enabled: open,
+    staleTime: 1000 * 60 * 5, // 5分間キャッシュを保持
+    cacheTime: 1000 * 60 * 30, // 30分間キャッシュを保持
   });
 
   useEffect(() => {
@@ -66,7 +68,6 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
     }
   };
 
-  // モーダルが閉じられたときのクリーンアップ
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setDisplayName(profile?.display_name || "");
@@ -74,6 +75,10 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
     }
     onOpenChange(newOpen);
   };
+
+  if (isProfileLoading) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
