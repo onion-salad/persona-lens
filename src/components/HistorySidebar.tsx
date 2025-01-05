@@ -1,4 +1,4 @@
-import { History, ArrowRight } from "lucide-react";
+import { History, ArrowRight, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ExecutionHistoryItem } from "@/types/feedback";
 import FeedbackButton from "./FeedbackButton";
+import { useNavigate } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +18,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Button } from "@/components/ui/button";
 
 interface HistorySidebarProps {
   onHistorySelect?: (history: ExecutionHistoryItem) => void;
@@ -25,6 +27,7 @@ interface HistorySidebarProps {
 export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
   const [history, setHistory] = useState<ExecutionHistoryItem[]>([]);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchHistory();
@@ -93,10 +96,25 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
     }
   };
 
+  const handleNewConversation = () => {
+    navigate("/steps");
+    window.location.reload(); // ステップをリセットするために再読み込み
+  };
+
   return (
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
+          <div className="p-4">
+            <Button 
+              variant="outline" 
+              className="w-full flex items-center justify-center gap-2"
+              onClick={handleNewConversation}
+            >
+              <PlusCircle className="h-4 w-4" />
+              新しい会話を始める
+            </Button>
+          </div>
           <SidebarGroupLabel>実行履歴</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
