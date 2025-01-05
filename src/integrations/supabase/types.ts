@@ -48,6 +48,53 @@ export type Database = {
           },
         ]
       }
+      execution_history: {
+        Row: {
+          created_at: string
+          feedbacks: Json | null
+          id: string
+          personas: Json
+          service_description: string
+          target_age: string
+          target_gender: string
+          target_income: string
+          usage_scene: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          feedbacks?: Json | null
+          id?: string
+          personas: Json
+          service_description: string
+          target_age: string
+          target_gender: string
+          target_income: string
+          usage_scene: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          feedbacks?: Json | null
+          id?: string
+          personas?: Json
+          service_description?: string
+          target_age?: string
+          target_gender?: string
+          target_income?: string
+          usage_scene?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       favorites: {
         Row: {
           created_at: string

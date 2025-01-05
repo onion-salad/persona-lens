@@ -4,7 +4,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PersonaCreationProps {
-  onPersonasGenerated: (personas: string[]) => void;
+  onPersonasGenerated: (personas: string[], formData: PersonaFormData) => void;
 }
 
 const PersonaCreation = ({ onPersonasGenerated }: PersonaCreationProps) => {
@@ -26,7 +26,7 @@ const PersonaCreation = ({ onPersonasGenerated }: PersonaCreationProps) => {
       
       if (personasError) throw personasError;
       
-      onPersonasGenerated(personasData.personas);
+      onPersonasGenerated(personasData.personas, formData);
       
       toast({
         title: "ペルソナを生成しました",

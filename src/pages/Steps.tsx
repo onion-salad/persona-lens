@@ -7,6 +7,9 @@ import FeedbackResults from "@/components/steps/FeedbackResults";
 import AnalyticsView from "@/components/steps/AnalyticsView";
 import { Feedback } from "@/types/feedback";
 import FeedbackButton from "@/components/FeedbackButton";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { PersonaFormData } from "@/components/PersonaForm";
 
 const steps = [
   {
@@ -35,10 +38,62 @@ const Index = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [personas, setPersonas] = useState<string[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [formData, setFormData] = useState<PersonaFormData | null>(null);
+  const { toast } = useToast();
 
   const handleStepClick = (stepIndex: number) => {
     if (stepIndex <= currentStep) {
       setCurrentStep(stepIndex);
+    }
+  };
+
+  const saveExecutionHistory = async (data: PersonaFormData, personas: string[]) => {
+    try {
+      const { error } = await supabase.from("execution_history").insert({
+        target_gender: data.targetGender,
+        target_age: data.targetAge,
+        target_income: data.targetIncome,
+        service_description: data.serviceDescription,
+        usage_scene: data.usageScene,
+        personas: personas,
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error saving execution history:", error);
+      toast({
+        title: "エラーが発生しました",
+        description: "実行履歴の保存に失敗しました。",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateExecutionHistoryWithFeedback = async (feedbacks: Feedback[]) => {
+    try {
+      const { data: latestHistory, error: fetchError } = await supabase
+        .from("execution_history")
+        .select("id")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (fetchError) throw fetchError;
+
+      if (latestHistory && latestHistory[0]) {
+        const { error: updateError } = await supabase
+          .from("execution_history")
+          .update({ feedbacks: feedbacks })
+          .eq("id", latestHistory[0].id);
+
+        if (updateError) throw updateError;
+      }
+    } catch (error) {
+      console.error("Error updating execution history:", error);
+      toast({
+        title: "エラーが発生しました",
+        description: "フィードバックの保存に失敗しました。",
+        variant: "destructive",
+      });
     }
   };
 
@@ -47,8 +102,10 @@ const Index = () => {
       case 0:
         return (
           <PersonaCreation
-            onPersonasGenerated={(newPersonas) => {
+            onPersonasGenerated={(newPersonas, formData) => {
               setPersonas(newPersonas);
+              setFormData(formData);
+              saveExecutionHistory(formData, newPersonas);
               setCurrentStep(1);
             }}
           />
@@ -66,6 +123,7 @@ const Index = () => {
             personas={personas}
             onFeedbackGenerated={(newFeedbacks) => {
               setFeedbacks(newFeedbacks);
+              updateExecutionHistoryWithFeedback(newFeedbacks);
               setCurrentStep(3);
             }}
           />
