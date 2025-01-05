@@ -7,7 +7,7 @@ import ContentCreation from "@/components/steps/ContentCreation";
 import FeedbackResults from "@/components/steps/FeedbackResults";
 import AnalyticsView from "@/components/steps/AnalyticsView";
 import { Feedback } from "@/types/feedback";
-import FeedbackButton from "@/components/FeedbackButton";
+import UserAvatar from "@/components/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { PersonaFormData } from "@/components/PersonaForm";
@@ -62,7 +62,7 @@ const Steps = () => {
     }
   };
 
-  const saveExecutionHistory = async (data: PersonaFormData, personas: string[]) => {
+  const saveExecutionHistory = async (data: PersonaFormData, personas: string[], feedbacks?: Feedback[]) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -70,7 +70,7 @@ const Steps = () => {
         throw new Error("User not authenticated");
       }
 
-      const { error } = await supabase.from("execution_history").insert({
+      const historyData = {
         target_gender: data.targetGender,
         target_age: data.targetAge,
         target_income: data.targetIncome,
@@ -78,7 +78,16 @@ const Steps = () => {
         usage_scene: data.usageScene,
         personas: personas,
         user_id: user.id,
-      });
+        feedbacks: feedbacks ? feedbacks.map(f => ({
+          persona: f.persona,
+          feedback: f.feedback,
+          selectedImageUrl: f.selectedImageUrl
+        })) : null
+      };
+
+      const { error } = await supabase
+        .from("execution_history")
+        .upsert([historyData]);
 
       if (error) throw error;
     } catch (error) {
@@ -186,7 +195,7 @@ const Steps = () => {
       <div className="flex min-h-screen w-full">
         <HistorySidebar onHistorySelect={handleHistorySelect} />
         <div className="flex-1 py-12 px-4 sm:px-6 lg:px-8 bg-white">
-          <FeedbackButton />
+          <UserAvatar />
           
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">

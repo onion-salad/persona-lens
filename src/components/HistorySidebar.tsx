@@ -5,6 +5,7 @@ import { ja } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ExecutionHistoryItem } from "@/types/feedback";
+import FeedbackButton from "./FeedbackButton";
 import {
   Sidebar,
   SidebarContent,
@@ -105,11 +106,11 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
                     <HoverCardTrigger asChild>
                       <SidebarMenuButton
                         onClick={() => handleHistoryClick(item)}
-                        className="w-full transition-colors hover:bg-accent group"
+                        className="w-full min-h-[80px] p-4 transition-colors hover:bg-accent group"
                       >
                         <div className="flex items-center justify-between w-full gap-2">
-                          <div className="flex flex-col items-start gap-1">
-                            <span className="font-medium">{item.service_description}</span>
+                          <div className="flex flex-col items-start gap-2">
+                            <span className="font-medium line-clamp-2">{item.service_description}</span>
                             <span className="text-xs text-gray-500">
                               {formatDate(item.created_at)}
                             </span>
@@ -136,6 +137,9 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <div className="mt-auto p-4 border-t">
+        <FeedbackButton />
+      </div>
     </Sidebar>
   );
 }

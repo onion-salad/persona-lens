@@ -22,7 +22,7 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
         for (const image of images) {
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('feedback-images')
-            .upload(image.name, image);
+            .upload(`${Date.now()}-${image.name}`, image);
 
           if (uploadError) {
             console.error('Upload error:', uploadError);
@@ -31,7 +31,7 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
 
           const { data: { publicUrl } } = supabase.storage
             .from('feedback-images')
-            .getPublicUrl(image.name);
+            .getPublicUrl(uploadData.path);
             
           imageUrls.push(publicUrl);
         }
@@ -39,14 +39,27 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
 
       const { data: feedbackData, error: feedbackError } = await supabase.functions.invoke('generate-feedback', {
         body: { 
+          content,
           imageUrls,
           personas
         }
       });
 
       if (feedbackError) throw feedbackError;
+
+      // フィードバックデータの型を確認して変換
+      const typedFeedbacks: Feedback[] = feedbackData.feedbacks.map((f: any) => ({
+        persona: f.persona,
+        feedback: {
+          firstImpression: f.feedback.firstImpression,
+          appealPoints: f.feedback.appealPoints,
+          improvements: f.feedback.improvements,
+          summary: f.feedback.summary
+        },
+        selectedImageUrl: f.selectedImageUrl
+      }));
       
-      onFeedbackGenerated(feedbackData.feedbacks);
+      onFeedbackGenerated(typedFeedbacks);
 
       toast({
         title: "フィードバックを生成しました",
