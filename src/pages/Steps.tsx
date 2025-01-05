@@ -63,6 +63,12 @@ const Steps = () => {
 
   const saveExecutionHistory = async (data: PersonaFormData, personas: string[]) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
       const { error } = await supabase.from("execution_history").insert({
         target_gender: data.targetGender,
         target_age: data.targetAge,
@@ -70,7 +76,7 @@ const Steps = () => {
         service_description: data.serviceDescription,
         usage_scene: data.usageScene,
         personas: personas,
-        user_id: null, // 認証機能実装時に更新
+        user_id: user.id,
       });
 
       if (error) throw error;

@@ -41,20 +41,30 @@ export function HistorySidebar() {
       if (error) throw error;
 
       // データの型を変換
-      const typedData: ExecutionHistoryItem[] = data?.map(item => ({
-        ...item,
-        personas: Array.isArray(item.personas) ? item.personas.map(p => String(p)) : [],
-        feedbacks: Array.isArray(item.feedbacks) ? item.feedbacks.map(f => ({
-          persona: String(f.persona),
-          feedback: {
-            firstImpression: String(f.feedback.firstImpression),
-            appealPoints: f.feedback.appealPoints.map(String),
-            improvements: f.feedback.improvements.map(String),
-            summary: String(f.feedback.summary)
-          },
-          selectedImageUrl: f.selectedImageUrl ? String(f.selectedImageUrl) : undefined
-        })) : []
-      })) || [];
+      const typedData: ExecutionHistoryItem[] = data?.map(item => {
+        const personas = Array.isArray(item.personas) 
+          ? item.personas.map(p => String(p)) 
+          : [];
+
+        const feedbacks = Array.isArray(item.feedbacks) 
+          ? item.feedbacks.map((f: any) => ({
+              persona: String(f.persona),
+              feedback: {
+                firstImpression: String(f.feedback.firstImpression),
+                appealPoints: f.feedback.appealPoints.map(String),
+                improvements: f.feedback.improvements.map(String),
+                summary: String(f.feedback.summary)
+              },
+              selectedImageUrl: f.selectedImageUrl ? String(f.selectedImageUrl) : undefined
+            }))
+          : [];
+
+        return {
+          ...item,
+          personas,
+          feedbacks,
+        };
+      }) || [];
 
       setHistory(typedData);
     } catch (error) {
