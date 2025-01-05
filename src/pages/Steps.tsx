@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { PersonaFormData } from "@/components/PersonaForm";
 import { HistorySidebar } from "@/components/HistorySidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { ExecutionHistoryItem } from "@/types/feedback";
 
 const steps = [
   {
@@ -118,6 +119,23 @@ const Steps = () => {
     }
   };
 
+  const handleHistorySelect = (selectedHistory: ExecutionHistoryItem) => {
+    setFormData({
+      targetGender: selectedHistory.target_gender,
+      targetAge: selectedHistory.target_age,
+      targetIncome: selectedHistory.target_income,
+      serviceDescription: selectedHistory.service_description,
+      usageScene: selectedHistory.usage_scene,
+    });
+    setPersonas(selectedHistory.personas);
+    if (selectedHistory.feedbacks) {
+      setFeedbacks(selectedHistory.feedbacks);
+      setCurrentStep(3); // フィードバック結果の表示ステップへ
+    } else {
+      setCurrentStep(2); // 画像アップロードステップへ
+    }
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case 0:
@@ -166,9 +184,8 @@ const Steps = () => {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <HistorySidebar />
-        <div 
-          className="flex-1 py-12 px-4 sm:px-6 lg:px-8 bg-white">
+        <HistorySidebar onHistorySelect={handleHistorySelect} />
+        <div className="flex-1 py-12 px-4 sm:px-6 lg:px-8 bg-white">
           <FeedbackButton />
           
           <div className="max-w-4xl mx-auto">

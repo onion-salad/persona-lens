@@ -1,4 +1,4 @@
-import { History } from "lucide-react";
+import { History, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -15,8 +15,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 
-export function HistorySidebar() {
+interface HistorySidebarProps {
+  onHistorySelect?: (history: ExecutionHistoryItem) => void;
+}
+
+export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
   const [history, setHistory] = useState<ExecutionHistoryItem[]>([]);
   const { toast } = useToast();
 
@@ -81,6 +86,12 @@ export function HistorySidebar() {
     return format(new Date(date), "yyyy年MM月dd日 HH:mm", { locale: ja });
   };
 
+  const handleHistoryClick = (item: ExecutionHistoryItem) => {
+    if (onHistorySelect) {
+      onHistorySelect(item);
+    }
+  };
+
   return (
     <Sidebar>
       <SidebarContent>
@@ -90,14 +101,35 @@ export function HistorySidebar() {
             <SidebarMenu>
               {history.map((item) => (
                 <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton asChild>
-                    <div className="flex flex-col items-start gap-1">
-                      <span className="font-medium">{item.service_description}</span>
-                      <span className="text-xs text-gray-500">
-                        {formatDate(item.created_at)}
-                      </span>
-                    </div>
-                  </SidebarMenuButton>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <SidebarMenuButton
+                        onClick={() => handleHistoryClick(item)}
+                        className="w-full transition-colors hover:bg-accent group"
+                      >
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="font-medium">{item.service_description}</span>
+                            <span className="text-xs text-gray-500">
+                              {formatDate(item.created_at)}
+                            </span>
+                          </div>
+                          <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </SidebarMenuButton>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold">実行詳細</h4>
+                        <div className="text-sm">
+                          <p>ターゲット: {item.target_gender} / {item.target_age}</p>
+                          <p>年収: {item.target_income}</p>
+                          <p>利用シーン: {item.usage_scene}</p>
+                          <p>生成ペルソナ: {item.personas.length}人</p>
+                        </div>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
