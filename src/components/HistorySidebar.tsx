@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ExecutionHistoryItem } from "@/types/feedback";
 import FeedbackButton from "./FeedbackButton";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +28,8 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
   const [history, setHistory] = useState<ExecutionHistoryItem[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHistory();
@@ -76,6 +78,11 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
       }) || [];
 
       setHistory(typedData);
+      
+      // 最新の履歴IDを現在のものとして設定
+      if (typedData.length > 0 && location.pathname === '/steps') {
+        setCurrentHistoryId(typedData[0].id);
+      }
     } catch (error) {
       console.error("Error fetching history:", error);
       toast({
@@ -92,13 +99,23 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
 
   const handleHistoryClick = (item: ExecutionHistoryItem) => {
     if (onHistorySelect) {
+      setCurrentHistoryId(item.id);
       onHistorySelect(item);
     }
   };
 
-  const handleNewConversation = () => {
-    navigate("/steps");
-    window.location.reload(); // ステップをリセットするために再読み込み
+  const handleNewConversation = async () => {
+    // 新しい会話を始める前に現在の履歴IDをリセット
+    setCurrentHistoryId(null);
+    
+    // ステップをリセットするためのステート更新
+    navigate("/steps", { 
+      replace: true,
+      state: { 
+        reset: true,
+        timestamp: new Date().getTime() 
+      }
+    });
   };
 
   return (
@@ -108,7 +125,7 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
           <div className="p-4">
             <Button 
               variant="outline" 
-              className="w-full flex items-center justify-center gap-2"
+              className="w-full flex items-center justify-center gap-2 hover:bg-primary hover:text-primary-foreground transition-colors"
               onClick={handleNewConversation}
             >
               <PlusCircle className="h-4 w-4" />
@@ -124,7 +141,8 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
                     <HoverCardTrigger asChild>
                       <SidebarMenuButton
                         onClick={() => handleHistoryClick(item)}
-                        className="w-full min-h-[80px] p-4 transition-colors hover:bg-accent group"
+                        className={`w-full min-h-[80px] p-4 transition-colors hover:bg-accent group
+                          ${currentHistoryId === item.id ? 'bg-accent/50 border-l-4 border-primary' : ''}`}
                       >
                         <div className="flex items-center justify-between w-full gap-2">
                           <div className="flex flex-col items-start gap-2">

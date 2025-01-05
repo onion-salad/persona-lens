@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import StepIndicator from "@/components/StepIndicator";
 import PersonaCreation from "@/components/steps/PersonaCreation";
 import PersonaConfirmation from "@/components/steps/PersonaConfirmation";
@@ -40,6 +40,7 @@ const steps = [
 
 const Steps = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentStep, setCurrentStep] = useState(0);
   const [personas, setPersonas] = useState<string[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
@@ -55,6 +56,18 @@ const Steps = () => {
     };
     checkAuth();
   }, [navigate]);
+
+  // 新しい会話を始める際のリセット処理
+  useEffect(() => {
+    if (location.state?.reset) {
+      setCurrentStep(0);
+      setPersonas([]);
+      setFeedbacks([]);
+      setFormData(null);
+      // 状態をクリアしてhistoryを更新
+      navigate("/steps", { replace: true });
+    }
+  }, [location.state?.timestamp]);
 
   const handleStepClick = (stepIndex: number) => {
     if (stepIndex <= currentStep) {
