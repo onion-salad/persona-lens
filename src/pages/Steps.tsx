@@ -93,14 +93,19 @@ const Steps = () => {
         user_id: user.id,
         feedbacks: feedbacks ? feedbacks.map(f => ({
           persona: f.persona,
-          feedback: f.feedback,
+          feedback: {
+            firstImpression: f.feedback.firstImpression,
+            appealPoints: f.feedback.appealPoints,
+            improvements: f.feedback.improvements,
+            summary: f.feedback.summary
+          },
           selectedImageUrl: f.selectedImageUrl
         })) : null
       };
 
       const { error } = await supabase
         .from("execution_history")
-        .upsert([historyData]);
+        .insert([historyData]);
 
       if (error) throw error;
     } catch (error) {

@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
-import { ExecutionHistoryItem } from "@/types/feedback";
+import { ExecutionHistoryItem, SupabaseExecutionHistory } from "@/types/feedback";
 
 const Dashboard = () => {
   const [history, setHistory] = useState<ExecutionHistoryItem[]>([]);
@@ -28,18 +27,18 @@ const Dashboard = () => {
       if (error) throw error;
 
       // データの型を変換
-      const typedData: ExecutionHistoryItem[] = data?.map(item => ({
+      const typedData: ExecutionHistoryItem[] = (data as SupabaseExecutionHistory[])?.map(item => ({
         ...item,
         personas: Array.isArray(item.personas) ? item.personas.map(String) : [],
         feedbacks: Array.isArray(item.feedbacks) ? item.feedbacks.map(f => ({
-          persona: String(f.persona),
+          persona: f.persona,
           feedback: {
-            firstImpression: String(f.feedback.firstImpression),
-            appealPoints: f.feedback.appealPoints.map(String),
-            improvements: f.feedback.improvements.map(String),
-            summary: String(f.feedback.summary)
+            firstImpression: f.feedback.firstImpression,
+            appealPoints: f.feedback.appealPoints,
+            improvements: f.feedback.improvements,
+            summary: f.feedback.summary
           },
-          selectedImageUrl: f.selectedImageUrl ? String(f.selectedImageUrl) : undefined
+          selectedImageUrl: f.selectedImageUrl
         })) : []
       })) || [];
 

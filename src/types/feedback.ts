@@ -24,10 +24,27 @@ export interface ExecutionHistoryItem {
   user_id: string | null;
 }
 
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
+// Supabaseのデータ型定義
+export interface SupabaseFeedback {
+  persona: string;
+  feedback: {
+    firstImpression: string;
+    appealPoints: string[];
+    improvements: string[];
+    summary: string;
+  };
+  selectedImageUrl?: string;
+}
+
+export interface SupabaseExecutionHistory {
+  id: string;
+  target_gender: string;
+  target_age: string;
+  target_income: string;
+  service_description: string;
+  usage_scene: string;
+  personas: string[];
+  feedbacks: SupabaseFeedback[];
+  created_at: string;
+  user_id: string | null;
+}
