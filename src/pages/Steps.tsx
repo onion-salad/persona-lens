@@ -64,6 +64,7 @@ const Steps = () => {
       setPersonas([]);
       setFeedbacks([]);
       setFormData(null);
+      setCurrentHistoryId(null);
       navigate("/steps", { replace: true });
     }
   }, [location.state?.timestamp]);
@@ -76,18 +77,27 @@ const Steps = () => {
         throw new Error("User not authenticated");
       }
 
+      // フィードバックデータをJSON互換の形式に変換
+      const jsonFeedbacks = feedbacks?.map(feedback => ({
+        persona: feedback.persona,
+        feedback: {
+          firstImpression: feedback.feedback.firstImpression,
+          appealPoints: feedback.feedback.appealPoints,
+          improvements: feedback.feedback.improvements,
+          summary: feedback.feedback.summary
+        },
+        selectedImageUrl: feedback.selectedImageUrl
+      }));
+
       if (currentHistoryId) {
         const { error: updateError } = await supabase
           .from("execution_history")
           .update({
-            feedbacks: feedbacks || []
+            feedbacks: jsonFeedbacks || []
           })
           .eq('id', currentHistoryId);
 
-        if (updateError) {
-          console.error('Error updating history:', updateError);
-          throw updateError;
-        }
+        if (updateError) throw updateError;
       } else {
         const { data: newHistory, error: insertError } = await supabase
           .from("execution_history")
@@ -99,16 +109,12 @@ const Steps = () => {
             usage_scene: data.usageScene,
             personas: personas,
             user_id: user.id,
-            feedbacks: []
+            feedbacks: jsonFeedbacks || []
           }])
           .select()
           .single();
 
-        if (insertError) {
-          console.error('Error creating history:', insertError);
-          throw insertError;
-        }
-
+        if (insertError) throw insertError;
         setCurrentHistoryId(newHistory.id);
       }
 
@@ -141,6 +147,15 @@ const Steps = () => {
       await saveExecutionHistory(formData, personas, newFeedbacks);
     }
     setCurrentStep(3);
+  };
+
+  const handleHistorySelect = (history: ExecutionHistoryItem) => {
+    if (formData) {
+      setPersonas(history.personas);
+      setFeedbacks(history.feedbacks);
+      setCurrentHistoryId(history.id);
+      setCurrentStep(3);
+    }
   };
 
   const renderStep = () => {
