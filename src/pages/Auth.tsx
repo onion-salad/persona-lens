@@ -29,6 +29,38 @@ const AuthPage = () => {
           appearance={{ theme: ThemeSupa }}
           theme="light"
           providers={[]}
+          localization={{
+            variables: {
+              sign_in: {
+                email_label: "メールアドレス",
+                password_label: "パスワード",
+                button_label: "ログイン",
+                loading_button_label: "ログイン中...",
+                social_provider_text: "でログイン",
+                link_text: "アカウントをお持ちの方はこちら",
+              },
+              sign_up: {
+                email_label: "メールアドレス",
+                password_label: "パスワード",
+                button_label: "アカウント作成",
+                loading_button_label: "アカウント作成中...",
+                social_provider_text: "でアカウント作成",
+                link_text: "アカウントをお持ちでない方はこちら",
+              },
+              forgotten_password: {
+                email_label: "メールアドレス",
+                password_label: "パスワード",
+                button_label: "パスワードリセットメールを送信",
+                loading_button_label: "送信中...",
+                link_text: "パスワードをお忘れの方はこちら",
+              },
+              update_password: {
+                password_label: "新しいパスワード",
+                button_label: "パスワードを更新",
+                loading_button_label: "更新中...",
+              },
+            },
+          }}
         />
       </div>
     </div>
