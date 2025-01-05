@@ -1,9 +1,9 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User } from "lucide-react";
@@ -17,6 +17,7 @@ interface ProfileSettingsDialogProps {
 export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDialogProps) => {
   const [displayName, setDisplayName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -30,7 +31,14 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
         .single();
       return profile;
     },
+    enabled: open, // モーダルが開いているときのみクエリを実行
   });
+
+  useEffect(() => {
+    if (profile && open) {
+      setDisplayName(profile.display_name || "");
+    }
+  }, [profile, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +55,7 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
 
       if (error) throw error;
 
+      await queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast.success("プロフィールを更新しました");
       onOpenChange(false);
     } catch (error) {
@@ -57,11 +66,23 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
     }
   };
 
+  // モーダルが閉じられたときのクリーンアップ
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setDisplayName(profile?.display_name || "");
+      setIsLoading(false);
+    }
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>プロフィール設定</DialogTitle>
+          <DialogDescription>
+            プロフィール情報を更新できます
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex justify-center">
