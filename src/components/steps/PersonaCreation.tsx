@@ -25,29 +25,6 @@ const PersonaCreation = ({ onPersonasGenerated }: PersonaCreationProps) => {
       });
       
       if (personasError) throw personasError;
-
-      // ペルソナ生成が完了したら、実行履歴にも保存
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const historyData = {
-          target_gender: formData.targetGender,
-          target_age: formData.targetAge,
-          target_income: formData.targetIncome,
-          service_description: formData.serviceDescription,
-          usage_scene: formData.usageScene,
-          personas: personasData.personas,
-          user_id: user.id,
-          feedbacks: [] // 初期状態は空配列
-        };
-
-        const { error: historyError } = await supabase
-          .from("execution_history")
-          .insert([historyData]);
-
-        if (historyError) {
-          console.error('Error saving history:', historyError);
-        }
-      }
       
       onPersonasGenerated(personasData.personas, formData);
       

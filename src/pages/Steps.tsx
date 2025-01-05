@@ -45,6 +45,7 @@ const Steps = () => {
   const [personas, setPersonas] = useState<string[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [formData, setFormData] = useState<PersonaFormData | null>(null);
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,23 +58,15 @@ const Steps = () => {
     checkAuth();
   }, [navigate]);
 
-  // 新しい会話を始める際のリセット処理
   useEffect(() => {
     if (location.state?.reset) {
       setCurrentStep(0);
       setPersonas([]);
       setFeedbacks([]);
       setFormData(null);
-      // 状態をクリアしてhistoryを更新
       navigate("/steps", { replace: true });
     }
   }, [location.state?.timestamp]);
-
-  const handleStepClick = (stepIndex: number) => {
-    if (stepIndex <= currentStep) {
-      setCurrentStep(stepIndex);
-    }
-  };
 
   const saveExecutionHistory = async (data: PersonaFormData, personas: string[], feedbacks?: Feedback[]) => {
     try {
@@ -83,27 +76,42 @@ const Steps = () => {
         throw new Error("User not authenticated");
       }
 
-      const historyData = {
-        target_gender: data.targetGender,
-        target_age: data.targetAge,
-        target_income: data.targetIncome,
-        service_description: data.serviceDescription,
-        usage_scene: data.usageScene,
-        personas: personas,
-        user_id: user.id,
-        feedbacks: feedbacks || [] // そのまま配列として保存
-      };
+      if (currentHistoryId) {
+        const { error: updateError } = await supabase
+          .from("execution_history")
+          .update({
+            feedbacks: feedbacks || []
+          })
+          .eq('id', currentHistoryId);
 
-      console.log('Saving history data:', historyData);
+        if (updateError) {
+          console.error('Error updating history:', updateError);
+          throw updateError;
+        }
+      } else {
+        const { data: newHistory, error: insertError } = await supabase
+          .from("execution_history")
+          .insert([{
+            target_gender: data.targetGender,
+            target_age: data.targetAge,
+            target_income: data.targetIncome,
+            service_description: data.serviceDescription,
+            usage_scene: data.usageScene,
+            personas: personas,
+            user_id: user.id,
+            feedbacks: []
+          }])
+          .select()
+          .single();
 
-      const { error } = await supabase
-        .from("execution_history")
-        .insert([historyData]);
+        if (insertError) {
+          console.error('Error creating history:', insertError);
+          throw insertError;
+        }
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
+        setCurrentHistoryId(newHistory.id);
       }
+
     } catch (error) {
       console.error("Error saving execution history:", error);
       toast({
@@ -114,49 +122,25 @@ const Steps = () => {
     }
   };
 
-  const updateExecutionHistoryWithFeedback = async (feedbacks: Feedback[]) => {
-    try {
-      const { data: latestHistory, error: fetchError } = await supabase
-        .from("execution_history")
-        .select("id")
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (fetchError) throw fetchError;
-
-      if (latestHistory && latestHistory[0]) {
-        const { error: updateError } = await supabase
-          .from("execution_history")
-          .update({ feedbacks: feedbacks as any })
-          .eq("id", latestHistory[0].id);
-
-        if (updateError) throw updateError;
-      }
-    } catch (error) {
-      console.error("Error updating execution history:", error);
-      toast({
-        title: "エラーが発生しました",
-        description: "フィードバックの保存に失敗しました。",
-        variant: "destructive",
-      });
+  const handleStepClick = (stepIndex: number) => {
+    if (stepIndex <= currentStep) {
+      setCurrentStep(stepIndex);
     }
   };
 
-  const handleHistorySelect = (selectedHistory: ExecutionHistoryItem) => {
-    setFormData({
-      targetGender: selectedHistory.target_gender,
-      targetAge: selectedHistory.target_age,
-      targetIncome: selectedHistory.target_income,
-      serviceDescription: selectedHistory.service_description,
-      usageScene: selectedHistory.usage_scene,
-    });
-    setPersonas(selectedHistory.personas);
-    if (selectedHistory.feedbacks) {
-      setFeedbacks(selectedHistory.feedbacks);
-      setCurrentStep(3); // フィードバック結果の表示ステップへ
-    } else {
-      setCurrentStep(2); // 画像アップロードステップへ
+  const handlePersonasGenerated = async (newPersonas: string[], formData: PersonaFormData) => {
+    setPersonas(newPersonas);
+    setFormData(formData);
+    await saveExecutionHistory(formData, newPersonas);
+    setCurrentStep(1);
+  };
+
+  const handleFeedbackGenerated = async (newFeedbacks: Feedback[]) => {
+    setFeedbacks(newFeedbacks);
+    if (formData) {
+      await saveExecutionHistory(formData, personas, newFeedbacks);
     }
+    setCurrentStep(3);
   };
 
   const renderStep = () => {
@@ -164,12 +148,7 @@ const Steps = () => {
       case 0:
         return (
           <PersonaCreation
-            onPersonasGenerated={(newPersonas, formData) => {
-              setPersonas(newPersonas);
-              setFormData(formData);
-              saveExecutionHistory(formData, newPersonas);
-              setCurrentStep(1);
-            }}
+            onPersonasGenerated={handlePersonasGenerated}
           />
         );
       case 1:
@@ -183,11 +162,7 @@ const Steps = () => {
         return (
           <ContentCreation 
             personas={personas}
-            onFeedbackGenerated={(newFeedbacks) => {
-              setFeedbacks(newFeedbacks);
-              updateExecutionHistoryWithFeedback(newFeedbacks);
-              setCurrentStep(3);
-            }}
+            onFeedbackGenerated={handleFeedbackGenerated}
           />
         );
       case 3:
