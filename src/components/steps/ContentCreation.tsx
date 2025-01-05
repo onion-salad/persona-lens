@@ -47,13 +47,21 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
 
       if (feedbackError) throw feedbackError;
 
-      // フィードバックデータに画像URLを含める
-      const feedbacksWithImages = feedbackData.feedbacks.map((f: any, index: number) => ({
-        ...f,
-        selectedImageUrl: imageUrls[index] || null
+      // フィードバックデータの型を確認して変換
+      const typedFeedbacks: Feedback[] = feedbackData.feedbacks.map((f: any) => ({
+        persona: f.persona,
+        feedback: {
+          firstImpression: f.feedback.firstImpression,
+          appealPoints: f.feedback.appealPoints,
+          improvements: f.feedback.improvements,
+          summary: f.feedback.summary
+        },
+        selectedImageUrl: f.selectedImageUrl || null // nullの場合の対応を追加
       }));
 
-      onFeedbackGenerated(feedbacksWithImages);
+      console.log('Generated feedbacks:', typedFeedbacks); // デバッグ用ログ
+      
+      onFeedbackGenerated(typedFeedbacks);
 
       toast({
         title: "フィードバックを生成しました",

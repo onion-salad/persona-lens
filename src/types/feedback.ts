@@ -19,12 +19,23 @@ export interface ExecutionHistoryItem {
   service_description: string;
   usage_scene: string;
   personas: string[];
-  feedbacks: any[]; // Geminiからの返答をそのまま保存
+  feedbacks: Feedback[];
   created_at: string;
   user_id: string | null;
 }
 
 // Supabaseのデータ型定義
+export interface SupabaseFeedback {
+  persona: string;
+  feedback: {
+    firstImpression: string;
+    appealPoints: string[];
+    improvements: string[];
+    summary: string;
+  };
+  selectedImageUrl?: string | null;
+}
+
 export interface SupabaseExecutionHistory {
   id: string;
   target_gender: string;
@@ -33,7 +44,7 @@ export interface SupabaseExecutionHistory {
   service_description: string;
   usage_scene: string;
   personas: string[];
-  feedbacks: any[]; // Geminiからの返答をそのまま保存
+  feedbacks: SupabaseFeedback[];
   created_at: string;
   user_id: string | null;
 }
