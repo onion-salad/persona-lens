@@ -58,6 +58,7 @@ const Steps = () => {
         service_description: data.serviceDescription,
         usage_scene: data.usageScene,
         personas: personas,
+        user_id: null, // 認証機能実装時に更新
       });
 
       if (error) throw error;
@@ -84,7 +85,7 @@ const Steps = () => {
       if (latestHistory && latestHistory[0]) {
         const { error: updateError } = await supabase
           .from("execution_history")
-          .update({ feedbacks: feedbacks })
+          .update({ feedbacks: feedbacks as any })
           .eq("id", latestHistory[0].id);
 
         if (updateError) throw updateError;

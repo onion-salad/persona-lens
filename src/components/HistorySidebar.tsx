@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { ExecutionHistoryItem } from "@/types/feedback";
 import {
   Sidebar,
   SidebarContent,
@@ -13,21 +14,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
-
-interface ExecutionHistoryItem {
-  id: string;
-  target_gender: string;
-  target_age: string;
-  target_income: string;
-  service_description: string;
-  usage_scene: string;
-  personas: string[];
-  feedbacks: any[];
-  created_at: string;
-}
 
 export function HistorySidebar() {
   const [history, setHistory] = useState<ExecutionHistoryItem[]>([]);
@@ -46,7 +33,14 @@ export function HistorySidebar() {
 
       if (error) throw error;
 
-      setHistory(data || []);
+      // データの型を変換
+      const typedData: ExecutionHistoryItem[] = data?.map(item => ({
+        ...item,
+        personas: Array.isArray(item.personas) ? item.personas : [],
+        feedbacks: Array.isArray(item.feedbacks) ? item.feedbacks : []
+      })) || [];
+
+      setHistory(typedData);
     } catch (error) {
       console.error("Error fetching history:", error);
       toast({
