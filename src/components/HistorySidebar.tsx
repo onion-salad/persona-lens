@@ -33,7 +33,57 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
 
   useEffect(() => {
     fetchHistory();
-  }, []);
+
+    // リアルタイム更新のサブスクリプション設定
+    const channel = supabase
+      .channel('execution_history_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'execution_history'
+        },
+        (payload) => {
+          console.log('New history inserted:', payload);
+          const newHistory = payload.new as any;
+          
+          // 新しい履歴データを適切な型に変換
+          const typedHistory: ExecutionHistoryItem = {
+            ...newHistory,
+            personas: Array.isArray(newHistory.personas) 
+              ? newHistory.personas.map(String) 
+              : [],
+            feedbacks: Array.isArray(newHistory.feedbacks)
+              ? newHistory.feedbacks.map((f: any) => ({
+                  persona: String(f.persona),
+                  feedback: {
+                    firstImpression: String(f.feedback.firstImpression),
+                    appealPoints: f.feedback.appealPoints.map(String),
+                    improvements: f.feedback.improvements.map(String),
+                    summary: String(f.feedback.summary)
+                  },
+                  selectedImageUrl: f.selectedImageUrl || null
+                }))
+              : []
+          };
+
+          // 既存の履歴リストの先頭に新しい履歴を追加
+          setHistory(prev => [typedHistory, ...prev]);
+
+          // 現在のパスがstepsで、新しい履歴が追加された場合は自動選択
+          if (location.pathname === '/steps') {
+            setCurrentHistoryId(typedHistory.id);
+          }
+        }
+      )
+      .subscribe();
+
+    // クリーンアップ
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [location.pathname]);
 
   const fetchHistory = async () => {
     try {
@@ -66,7 +116,7 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
                 improvements: f.feedback.improvements.map(String),
                 summary: String(f.feedback.summary)
               },
-              selectedImageUrl: f.selectedImageUrl ? String(f.selectedImageUrl) : undefined
+              selectedImageUrl: f.selectedImageUrl || null
             }))
           : [];
 

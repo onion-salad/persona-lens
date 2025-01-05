@@ -83,6 +83,18 @@ const Steps = () => {
         throw new Error("User not authenticated");
       }
 
+      // feedbacksデータを適切な形式に変換
+      const formattedFeedbacks = feedbacks ? feedbacks.map(f => ({
+        persona: f.persona,
+        feedback: {
+          firstImpression: f.feedback.firstImpression,
+          appealPoints: f.feedback.appealPoints,
+          improvements: f.feedback.improvements,
+          summary: f.feedback.summary
+        },
+        selectedImageUrl: f.selectedImageUrl || null
+      })) : null;
+
       const historyData = {
         target_gender: data.targetGender,
         target_age: data.targetAge,
@@ -91,26 +103,17 @@ const Steps = () => {
         usage_scene: data.usageScene,
         personas: personas,
         user_id: user.id,
-        feedbacks: feedbacks ? feedbacks.map(f => ({
-          persona: f.persona,
-          feedback: {
-            firstImpression: f.feedback.firstImpression,
-            appealPoints: f.feedback.appealPoints,
-            improvements: f.feedback.improvements,
-            summary: f.feedback.summary
-          },
-          selectedImageUrl: f.selectedImageUrl || null
-        })) : null
+        feedbacks: formattedFeedbacks
       };
 
-      console.log('Saving history data:', historyData); // デバッグ用ログ
+      console.log('Saving history data:', historyData);
 
       const { error } = await supabase
         .from("execution_history")
         .insert([historyData]);
 
       if (error) {
-        console.error('Supabase error:', error); // デバッグ用ログ
+        console.error('Supabase error:', error);
         throw error;
       }
     } catch (error) {
