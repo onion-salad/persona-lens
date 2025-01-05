@@ -8,7 +8,7 @@ export interface FeedbackData {
 export interface Feedback {
   persona: string;
   feedback: FeedbackData;
-  selectedImageUrl?: string;
+  selectedImageUrl?: string | null;
 }
 
 export interface ExecutionHistoryItem {
@@ -33,7 +33,7 @@ export interface SupabaseFeedback {
     improvements: string[];
     summary: string;
   };
-  selectedImageUrl?: string;
+  selectedImageUrl?: string | null;
 }
 
 export interface SupabaseExecutionHistory {

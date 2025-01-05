@@ -99,15 +99,20 @@ const Steps = () => {
             improvements: f.feedback.improvements,
             summary: f.feedback.summary
           },
-          selectedImageUrl: f.selectedImageUrl
+          selectedImageUrl: f.selectedImageUrl || null
         })) : null
       };
+
+      console.log('Saving history data:', historyData); // デバッグ用ログ
 
       const { error } = await supabase
         .from("execution_history")
         .insert([historyData]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error); // デバッグ用ログ
+        throw error;
+      }
     } catch (error) {
       console.error("Error saving execution history:", error);
       toast({

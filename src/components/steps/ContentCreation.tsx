@@ -56,8 +56,10 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
           improvements: f.feedback.improvements,
           summary: f.feedback.summary
         },
-        selectedImageUrl: f.selectedImageUrl
+        selectedImageUrl: f.selectedImageUrl || null // nullの場合の対応を追加
       }));
+
+      console.log('Generated feedbacks:', typedFeedbacks); // デバッグ用ログ
       
       onFeedbackGenerated(typedFeedbacks);
 
