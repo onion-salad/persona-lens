@@ -11,6 +11,13 @@ interface FeedbackAnalyticsProps {
   }>;
 }
 
+type ChartDataItem = {
+  name: string;
+  選択数: number;
+  url?: string;
+  isError?: boolean;
+};
+
 const FeedbackAnalytics = ({ feedbacks }: FeedbackAnalyticsProps) => {
   // 画像ごとの選択回数とエラー数を集計
   const { imageSelectionData, errorCount } = feedbacks.reduce(
@@ -32,7 +39,7 @@ const FeedbackAnalytics = ({ feedbacks }: FeedbackAnalyticsProps) => {
   );
 
   // グラフ用のデータ形式に変換
-  const chartData = [
+  const chartData: ChartDataItem[] = [
     ...Object.entries(imageSelectionData).map(([url, count], index) => ({
       name: `画像${index + 1}`,
       選択数: count,
@@ -44,6 +51,10 @@ const FeedbackAnalytics = ({ feedbacks }: FeedbackAnalyticsProps) => {
       isError: true
     }] : [])
   ];
+
+  const getBarColor = (entry: ChartDataItem) => {
+    return entry.isError ? '#ef4444' : '#8884d8';
+  };
 
   return (
     <Card className="p-6 space-y-4">
@@ -58,13 +69,16 @@ const FeedbackAnalytics = ({ feedbacks }: FeedbackAnalyticsProps) => {
             <Legend />
             <Bar 
               dataKey="選択数" 
-              fill={(data) => data.isError ? '#ef4444' : '#8884d8'}
+              fill="#8884d8"
+              fillOpacity={0.8}
+              stroke={(entry: ChartDataItem) => getBarColor(entry)}
+              strokeWidth={2}
             />
           </BarChart>
         </ResponsiveContainer>
       </div>
       <div className="grid grid-cols-3 gap-4 mt-4">
-        {chartData.filter(item => !item.isError).map((item, index) => (
+        {chartData.filter(item => !item.isError && item.url).map((item, index) => (
           <div key={index} className="text-center">
             <img src={item.url} alt={`画像${index + 1}`} className="w-full h-32 object-cover rounded-lg" />
             <p className="mt-2 text-sm text-gray-600">選択数: {item.選択数}</p>
