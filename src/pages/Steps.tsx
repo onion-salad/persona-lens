@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import StepIndicator from "@/components/StepIndicator";
 import PersonaCreation from "@/components/steps/PersonaCreation";
 import PersonaConfirmation from "@/components/steps/PersonaConfirmation";
@@ -37,11 +38,22 @@ const steps = [
 ];
 
 const Steps = () => {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [personas, setPersonas] = useState<string[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [formData, setFormData] = useState<PersonaFormData | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth");
+      }
+    };
+    checkAuth();
+  }, [navigate]);
 
   const handleStepClick = (stepIndex: number) => {
     if (stepIndex <= currentStep) {
@@ -150,20 +162,12 @@ const Steps = () => {
       <div className="flex min-h-screen w-full">
         <HistorySidebar />
         <div 
-          className="flex-1 py-12 px-4 sm:px-6 lg:px-8 relative"
-          style={{
-            backgroundImage: "url('/lovable-uploads/a7897bdf-655d-46b8-b190-acbfad79648c.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
-          <div className="absolute inset-0 bg-white/15" />
-          
+          className="flex-1 py-12 px-4 sm:px-6 lg:px-8 bg-white">
           <FeedbackButton />
           
-          <div className="relative z-10 max-w-4xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
-              <h1 className="text-4xl font-bold text-black mb-4">
+              <h1 className="text-4xl font-bold text-gray-900 mb-4">
                 Persona Lens
               </h1>
               <p className="text-lg text-gray-600">
