@@ -23,3 +23,11 @@ export interface ExecutionHistoryItem {
   created_at: string;
   user_id: string | null;
 }
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];

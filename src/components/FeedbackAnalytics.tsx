@@ -52,10 +52,6 @@ const FeedbackAnalytics = ({ feedbacks }: FeedbackAnalyticsProps) => {
     }] : [])
   ];
 
-  const getBarColor = (entry: ChartDataItem) => {
-    return entry.isError ? '#ef4444' : '#8884d8';
-  };
-
   return (
     <Card className="p-6 space-y-4">
       <h3 className="text-lg font-semibold">フィードバック分析</h3>
@@ -71,7 +67,7 @@ const FeedbackAnalytics = ({ feedbacks }: FeedbackAnalyticsProps) => {
               dataKey="選択数" 
               fill="#8884d8"
               fillOpacity={0.8}
-              stroke={(entry: ChartDataItem) => getBarColor(entry)}
+              stroke="#8884d8"
               strokeWidth={2}
             />
           </BarChart>

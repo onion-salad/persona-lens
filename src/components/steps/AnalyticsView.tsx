@@ -2,20 +2,14 @@ import FeedbackAnalytics from "@/components/FeedbackAnalytics";
 import { Feedback } from "@/types/feedback";
 
 interface AnalyticsViewProps {
-  feedbacks: Array<{
-    persona: string;
-    feedback: string;
-    selectedImageUrl: string;
-  }>;
+  feedbacks: Feedback[];
 }
 
 const AnalyticsView = ({ feedbacks }: AnalyticsViewProps) => {
   // フィードバックデータを必要な形式に変換
   const formattedFeedbacks = feedbacks.map(feedback => ({
     persona: feedback.persona,
-    feedback: typeof feedback.feedback === 'string' 
-      ? feedback.feedback 
-      : JSON.stringify(feedback.feedback),
+    feedback: JSON.stringify(feedback.feedback),
     selectedImageUrl: feedback.selectedImageUrl || ''
   }));
 

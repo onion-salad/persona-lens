@@ -7,21 +7,10 @@ import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
-
-interface ExecutionHistory {
-  id: string;
-  target_gender: string;
-  target_age: string;
-  target_income: string;
-  service_description: string;
-  usage_scene: string;
-  personas: string[];
-  feedbacks: any[];
-  created_at: string;
-}
+import { ExecutionHistoryItem } from "@/types/feedback";
 
 const Dashboard = () => {
-  const [history, setHistory] = useState<ExecutionHistory[]>([]);
+  const [history, setHistory] = useState<ExecutionHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -38,7 +27,23 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      setHistory(data || []);
+      // データの型を変換
+      const typedData: ExecutionHistoryItem[] = data?.map(item => ({
+        ...item,
+        personas: Array.isArray(item.personas) ? item.personas.map(String) : [],
+        feedbacks: Array.isArray(item.feedbacks) ? item.feedbacks.map(f => ({
+          persona: String(f.persona),
+          feedback: {
+            firstImpression: String(f.feedback.firstImpression),
+            appealPoints: f.feedback.appealPoints.map(String),
+            improvements: f.feedback.improvements.map(String),
+            summary: String(f.feedback.summary)
+          },
+          selectedImageUrl: f.selectedImageUrl ? String(f.selectedImageUrl) : undefined
+        })) : []
+      })) || [];
+
+      setHistory(typedData);
     } catch (error) {
       console.error("Error fetching history:", error);
       toast({
