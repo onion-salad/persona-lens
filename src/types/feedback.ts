@@ -1,8 +1,7 @@
 export interface FeedbackData {
-  firstImpression: string;
-  appealPoints: string[];
-  improvements: string[];
-  summary: string;
+  content: string;
+  sentiment: string;
+  suggestions: string[];
 }
 
 export interface Feedback {

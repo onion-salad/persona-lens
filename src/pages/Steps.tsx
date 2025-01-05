@@ -10,6 +10,8 @@ import FeedbackButton from "@/components/FeedbackButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { PersonaFormData } from "@/components/PersonaForm";
+import { HistorySidebar } from "@/components/HistorySidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 const steps = [
   {
@@ -34,7 +36,7 @@ const steps = [
   },
 ];
 
-const Index = () => {
+const Steps = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [personas, setPersonas] = useState<string[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
@@ -143,42 +145,47 @@ const Index = () => {
   };
 
   return (
-    <div 
-      className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 relative"
-      style={{
-        backgroundImage: "url('/lovable-uploads/a7897bdf-655d-46b8-b190-acbfad79648c.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      <div className="absolute inset-0 bg-white/15" />
-      
-      <FeedbackButton />
-      
-      <div className="relative z-10 max-w-4xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-black mb-4">
-            Persona Lens
-          </h1>
-          <p className="text-lg text-gray-600">
-            多様なペルソナの視点からファーストビューの評価を得られます
-          </p>
-        </div>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full">
+        <HistorySidebar />
+        <div 
+          className="flex-1 py-12 px-4 sm:px-6 lg:px-8 relative"
+          style={{
+            backgroundImage: "url('/lovable-uploads/a7897bdf-655d-46b8-b190-acbfad79648c.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          <div className="absolute inset-0 bg-white/15" />
+          
+          <FeedbackButton />
+          
+          <div className="relative z-10 max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h1 className="text-4xl font-bold text-black mb-4">
+                Persona Lens
+              </h1>
+              <p className="text-lg text-gray-600">
+                多様なペルソナの視点からファーストビューの評価を得られます
+              </p>
+            </div>
 
-        <div className="mb-8">
-          <StepIndicator 
-            currentStep={currentStep} 
-            steps={steps} 
-            onStepClick={handleStepClick}
-          />
-        </div>
+            <div className="mb-8">
+              <StepIndicator 
+                currentStep={currentStep} 
+                steps={steps} 
+                onStepClick={handleStepClick}
+              />
+            </div>
 
-        <div className="space-y-8">
-          {renderStep()}
+            <div className="space-y-8">
+              {renderStep()}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
-export default Index;
+export default Steps;
