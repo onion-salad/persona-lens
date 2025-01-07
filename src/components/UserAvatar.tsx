@@ -46,7 +46,7 @@ const UserAvatar = () => {
   };
 
   const handleFeedbackClick = () => {
-    navigate("/feedback");
+    window.open('https://feedbackhub.lovable.app/services/deeef857-aa16-4897-abda-045e5b8c0a14', '_blank');
   };
 
   return (
