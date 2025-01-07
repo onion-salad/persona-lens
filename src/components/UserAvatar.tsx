@@ -1,4 +1,4 @@
-import { UserRound, Settings, LogOut } from "lucide-react";
+import { UserRound, Settings, LogOut, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +45,10 @@ const UserAvatar = () => {
     }
   };
 
+  const handleFeedbackClick = () => {
+    navigate("/feedback");
+  };
+
   return (
     <div className="fixed top-4 right-4 z-50">
       <DropdownMenu>
@@ -73,6 +77,10 @@ const UserAvatar = () => {
             <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
               <Settings className="mr-2 h-4 w-4" />
               アカウント設定
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleFeedbackClick}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              機能要望はこちら
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
