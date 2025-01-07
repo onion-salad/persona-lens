@@ -20,7 +20,7 @@ const Landing = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-cover bg-center bg-no-repeat relative"
          style={{ backgroundImage: 'url("/lovable-uploads/ea2ff70a-5125-4de5-a6fa-6374225d29fb.png")' }}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/40" />
       
       <div className="max-w-4xl mx-auto text-center px-4 relative z-10">
         <h1 className="text-7xl font-bold text-white mb-6">

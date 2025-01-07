@@ -1,7 +1,15 @@
 import { MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "react-router-dom";
 
 const FeedbackButton = () => {
+  const location = useLocation();
+  
+  // ステップ画面では非表示
+  if (location.pathname === "/steps") {
+    return null;
+  }
+
   return (
     <Button
       variant="ghost"
