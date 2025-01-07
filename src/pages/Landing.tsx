@@ -18,23 +18,26 @@ const Landing = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-      <FeedbackButton />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-cover bg-center bg-no-repeat relative"
+         style={{ backgroundImage: 'url("/lovable-uploads/ea2ff70a-5125-4de5-a6fa-6374225d29fb.png")' }}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       
-      <div className="max-w-4xl mx-auto text-center px-4">
-        <h1 className="text-7xl font-bold text-gray-900 mb-6">
+      <div className="max-w-4xl mx-auto text-center px-4 relative z-10">
+        <h1 className="text-7xl font-bold text-white mb-6">
           Persona Lens
         </h1>
-        <p className="text-2xl text-gray-600 mb-12 max-w-2xl mx-auto">
+        <p className="text-2xl text-gray-100 mb-12 max-w-2xl mx-auto">
           多様なペルソナの視点からウェブサイトの第一印象を分析
         </p>
         <Button 
           onClick={() => navigate("/auth")} 
-          className="text-lg px-8 py-6 bg-black text-white hover:bg-black/90 transform transition hover:scale-105"
+          className="text-lg px-8 py-6 bg-white text-black hover:bg-white/90 transform transition hover:scale-105"
         >
           始める
         </Button>
       </div>
+      
+      <FeedbackButton />
     </div>
   );
 };
