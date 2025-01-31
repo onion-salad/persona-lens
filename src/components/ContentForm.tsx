@@ -41,9 +41,7 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
 
     // ファイル名を安全な形式に変換
     const safeFiles = files.map(file => {
-      // 拡張子を取得
       const extension = file.name.split('.').pop() || '';
-      // 新しいBlobを作成し、安全なファイル名を付与
       const safeFileName = `${crypto.randomUUID()}.${extension}`;
       return new File([file], safeFileName, { type: file.type });
     });
@@ -68,10 +66,10 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content && images.length === 0) {
+    if (!content) {
       toast({
         title: "エラー",
-        description: "テキストまたは画像を入力してください",
+        description: "フィードバック内容を入力してください",
         variant: "destructive",
       });
       return;
@@ -93,7 +91,7 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
             id="content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="フィードバックを受けたい内容を入力してください"
+            placeholder="サービスに関する具体的なフィードバックを受けたい内容を入力してください"
             className="min-h-[120px] backdrop-blur-md bg-white/20 border border-white/30 focus:border-black/30 transition-colors"
           />
         </div>
@@ -103,7 +101,7 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
             htmlFor="image"
             className="block text-sm font-medium text-gray-900 mb-2"
           >
-            画像をアップロード (最大5枚まで)
+            画像をアップロード (任意・最大5枚まで)
           </label>
           <div className="mt-1 flex items-center gap-4">
             <Button
@@ -151,7 +149,7 @@ const ContentForm = ({ onContentSubmit, isLoading }: ContentFormProps) => {
 
         <Button 
           type="submit" 
-          disabled={isLoading || (!content && images.length === 0)}
+          disabled={isLoading || !content}
           className="w-full bg-black text-white hover:bg-black/80 transition-colors"
         >
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
