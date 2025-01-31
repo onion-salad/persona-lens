@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import StepIndicator from "@/components/StepIndicator";
 import PersonaCreation from "@/components/steps/PersonaCreation";
