@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import StepIndicator from "@/components/StepIndicator";
 import PersonaCreation from "@/components/steps/PersonaCreation";
@@ -11,9 +11,10 @@ import { useStepNavigation } from "@/hooks/useStepNavigation";
 import { useAuthCheck } from "@/hooks/useAuthCheck";
 import StepContainer from "@/components/steps/StepContainer";
 import StepHeader from "@/components/steps/StepHeader";
-import { Feedback } from "@/types/feedback";
+import { useStepsState } from "@/hooks/useStepsState";
+import { ExecutionHistoryItem } from "@/types/feedback";
 
-const steps = [
+const STEPS = [
   {
     title: "ペルソナ設定",
     description: "基本情報を入力",
@@ -39,22 +40,18 @@ const steps = [
 const Steps = () => {
   const location = useLocation();
   const { currentStep, setCurrentStep, handleStepClick, resetSteps } = useStepNavigation();
-  const [personas, setPersonas] = useState<string[]>([]);
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [formData, setFormData] = useState<PersonaFormData | null>(null);
+  const { personas, setPersonas, feedbacks, setFeedbacks, formData, setFormData, resetState } = useStepsState();
 
   useAuthCheck();
 
   useEffect(() => {
     if (location.state?.reset) {
       resetSteps();
-      setPersonas([]);
-      setFeedbacks([]);
-      setFormData(null);
+      resetState();
     }
   }, [location.state?.timestamp]);
 
-  const handleHistorySelect = (selectedHistory: any) => {
+  const handleHistorySelect = (selectedHistory: ExecutionHistoryItem) => {
     setFormData({
       targetGender: selectedHistory.target_gender,
       targetAge: selectedHistory.target_age,
@@ -120,7 +117,7 @@ const Steps = () => {
       <div className="mb-8">
         <StepIndicator 
           currentStep={currentStep} 
-          steps={steps} 
+          steps={STEPS} 
           onStepClick={handleStepClick}
         />
       </div>
