@@ -3,17 +3,31 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 const Landing = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          navigate("/steps");
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+        toast.error("認証エラーが発生しました");
+      }
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (event === 'SIGNED_IN' && session) {
         navigate("/steps");
       }
     });
 
+    checkAuth();
     return () => subscription.unsubscribe();
   }, [navigate]);
 
