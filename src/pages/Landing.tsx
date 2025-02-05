@@ -1,6 +1,6 @@
+
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import FeedbackButton from "@/components/FeedbackButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 
@@ -36,8 +36,6 @@ const Landing = () => {
           始める
         </Button>
       </div>
-      
-      <FeedbackButton />
     </div>
   );
 };

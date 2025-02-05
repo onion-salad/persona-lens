@@ -1,3 +1,4 @@
+
 import { History, ArrowRight, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
@@ -5,7 +6,6 @@ import { ja } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ExecutionHistoryItem } from "@/types/feedback";
-import FeedbackButton from "./FeedbackButton";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -79,7 +79,6 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
 
       setHistory(typedData);
       
-      // 最新の履歴の自動選択を削除
     } catch (error) {
       console.error("Error fetching history:", error);
       toast({
@@ -167,9 +166,6 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <div className="mt-auto p-4 border-t">
-        <FeedbackButton />
-      </div>
     </Sidebar>
   );
 }
