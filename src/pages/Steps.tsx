@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import StepIndicator from "@/components/StepIndicator";
 import PersonaCreation from "@/components/steps/PersonaCreation";
 import PersonaConfirmation from "@/components/steps/PersonaConfirmation";
-import ContentCreation from "@/components/steps/ContentCreation";
+import ServiceDetails from "@/components/steps/ServiceDetails";
 import FeedbackResults from "@/components/steps/FeedbackResults";
 import AnalyticsView from "@/components/steps/AnalyticsView";
 import { useStepNavigation } from "@/hooks/useStepNavigation";
@@ -22,8 +22,8 @@ const STEPS = [
     description: "生成されたペルソナを確認",
   },
   {
-    title: "画像アップロード",
-    description: "評価する画像を選択",
+    title: "サービス詳細",
+    description: "追加情報を入力",
   },
   {
     title: "フィードバック",
@@ -99,13 +99,13 @@ const Steps = () => {
         );
       case 2:
         return (
-          <ContentCreation 
-            personas={personas}
-            onFeedbackGenerated={(newFeedbacks) => {
-              console.log("Feedback generated:", newFeedbacks);
-              setFeedbacks(newFeedbacks);
+          <ServiceDetails 
+            onSubmit={async (details, images) => {
+              console.log("Service details submitted:", { details, images });
+              // フィードバックの生成ロジックは後で実装
               setCurrentStep(3);
             }}
+            isLoading={false}
           />
         );
       case 3:
