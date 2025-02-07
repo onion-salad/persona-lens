@@ -37,6 +37,20 @@ const ApiKeyForm = ({ onSubmit }: ApiKeyFormProps) => {
           <p className="text-gray-600 mt-2">
             サービスを利用するにはAPIキーが必要です
           </p>
+          <div className="mt-4 text-sm text-gray-600">
+            <p>
+              Gemini APIキーは
+              <a 
+                href="https://ai.google.dev/gemini-api/docs?hl=ja" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 underline"
+              >
+                こちら
+              </a>
+              から取得できます。リンク先の画面の右側に「Gemini APIキーを取得する」という青いボタンがあるためそちらをクリックしてください。
+            </p>
+          </div>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
