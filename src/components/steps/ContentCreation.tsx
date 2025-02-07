@@ -14,12 +14,15 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
   const { toast } = useToast();
 
   const handleContentSubmit = async (content: string, images?: File[]) => {
+    console.log("Starting content submission with:", { content, imageCount: images?.length });
     setIsLoading(true);
     const imageUrls: string[] = [];
 
     try {
       if (images && images.length > 0) {
+        console.log("Uploading images...");
         for (const image of images) {
+          console.log("Uploading image:", image.name);
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('feedback-images')
             .upload(`${Date.now()}-${image.name}`, image);
@@ -34,9 +37,11 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
             .getPublicUrl(uploadData.path);
             
           imageUrls.push(publicUrl);
+          console.log("Image uploaded successfully:", publicUrl);
         }
       }
 
+      console.log("Invoking generate-feedback function...");
       const { data: feedbackData, error: feedbackError } = await supabase.functions.invoke('generate-feedback', {
         body: { 
           content,
@@ -45,9 +50,10 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
         }
       });
 
+      console.log("Response from generate-feedback:", { feedbackData, feedbackError });
+
       if (feedbackError) throw feedbackError;
 
-      // フィードバックデータの型を確認して変換
       const typedFeedbacks: Feedback[] = feedbackData.feedbacks.map((f: any) => ({
         persona: f.persona,
         feedback: {
@@ -56,10 +62,10 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
           improvements: f.feedback.improvements,
           summary: f.feedback.summary
         },
-        selectedImageUrl: f.selectedImageUrl || null // nullの場合の対応を追加
+        selectedImageUrl: f.selectedImageUrl || null
       }));
 
-      console.log('Generated feedbacks:', typedFeedbacks); // デバッグ用ログ
+      console.log('Generated feedbacks:', typedFeedbacks);
       
       onFeedbackGenerated(typedFeedbacks);
 
@@ -68,13 +74,14 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
         description: "各ペルソナからのフィードバックが生成されました。",
       });
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Detailed error:', error);
       toast({
         title: "エラーが発生しました",
         description: "フィードバックの生成に失敗しました。",
         variant: "destructive",
       });
     } finally {
+      console.log("Content submission process completed");
       setIsLoading(false);
     }
   };

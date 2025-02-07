@@ -41,13 +41,22 @@ const Steps = () => {
   const { personas, setPersonas, feedbacks, setFeedbacks, formData, setFormData, resetState } = useStepsState();
 
   useEffect(() => {
+    console.log("Steps component mounted or location state changed", { 
+      locationState: location.state,
+      currentStep,
+      personas,
+      feedbacks 
+    });
+
     if (location.state?.reset) {
+      console.log("Resetting steps and state");
       resetSteps();
       resetState();
     }
   }, [location.state?.timestamp]);
 
   const handleHistorySelect = (selectedHistory: ExecutionHistoryItem) => {
+    console.log("History item selected:", selectedHistory);
     setFormData({
       targetGender: selectedHistory.target_gender,
       targetAge: selectedHistory.target_age,
@@ -65,11 +74,13 @@ const Steps = () => {
   };
 
   const renderStep = () => {
+    console.log("Rendering step:", currentStep);
     switch (currentStep) {
       case 0:
         return (
           <PersonaCreation
             onPersonasGenerated={(newPersonas, formData) => {
+              console.log("Personas generated:", { newPersonas, formData });
               setPersonas(newPersonas);
               setFormData(formData);
               setCurrentStep(1);
@@ -80,7 +91,10 @@ const Steps = () => {
         return (
           <PersonaConfirmation
             personas={personas}
-            onNext={() => setCurrentStep(2)}
+            onNext={() => {
+              console.log("Moving to content creation step");
+              setCurrentStep(2);
+            }}
           />
         );
       case 2:
@@ -88,6 +102,7 @@ const Steps = () => {
           <ContentCreation 
             personas={personas}
             onFeedbackGenerated={(newFeedbacks) => {
+              console.log("Feedback generated:", newFeedbacks);
               setFeedbacks(newFeedbacks);
               setCurrentStep(3);
             }}
@@ -97,7 +112,10 @@ const Steps = () => {
         return (
           <FeedbackResults
             feedbacks={feedbacks}
-            onNext={() => setCurrentStep(4)}
+            onNext={() => {
+              console.log("Moving to analytics step");
+              setCurrentStep(4);
+            }}
           />
         );
       case 4:
