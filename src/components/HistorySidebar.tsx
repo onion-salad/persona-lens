@@ -1,9 +1,7 @@
-
 import { History, ArrowRight, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ExecutionHistoryItem } from "@/types/feedback";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -37,48 +35,22 @@ export function HistorySidebar({ onHistorySelect }: HistorySidebarProps) {
 
   const fetchHistory = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
-      const { data, error } = await supabase
-        .from("execution_history")
-        .select("*")
-        .eq('user_id', user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      // データの型を変換
-      const typedData: ExecutionHistoryItem[] = data?.map(item => {
-        const personas = Array.isArray(item.personas) 
-          ? item.personas.map(p => String(p)) 
-          : [];
-
-        const feedbacks = Array.isArray(item.feedbacks) 
-          ? item.feedbacks.map((f: any) => ({
-              persona: String(f.persona),
-              feedback: {
-                firstImpression: String(f.feedback.firstImpression),
-                appealPoints: f.feedback.appealPoints.map(String),
-                improvements: f.feedback.improvements.map(String),
-                summary: String(f.feedback.summary)
-              },
-              selectedImageUrl: f.selectedImageUrl ? String(f.selectedImageUrl) : undefined
-            }))
-          : [];
-
-        return {
-          ...item,
-          personas,
-          feedbacks,
-        };
-      }) || [];
-
-      setHistory(typedData);
-      
+      // モックデータを使用
+      const mockHistory: ExecutionHistoryItem[] = [
+        {
+          id: "1",
+          user_id: "mock-user",
+          target_gender: "all",
+          target_age: "20-30",
+          target_income: "middle",
+          service_description: "オンラインヨガサービス",
+          usage_scene: "在宅勤務の合間にリフレッシュ",
+          personas: ["20代女性", "30代男性"],
+          feedbacks: [],
+          created_at: new Date().toISOString()
+        }
+      ];
+      setHistory(mockHistory);
     } catch (error) {
       console.error("Error fetching history:", error);
       toast({

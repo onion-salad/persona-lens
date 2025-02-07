@@ -1,7 +1,6 @@
 import { UserRound, Settings, LogOut, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,23 +20,20 @@ const UserAvatar = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const navigate = useNavigate();
 
+  // モックデータを使用
   const { data: profile } = useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      return { ...profile, email: user.email };
+      return {
+        display_name: "テストユーザー",
+        email: "test@example.com",
+        avatar_url: null
+      };
     },
   });
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
       navigate("/auth");
       toast.success("ログアウトしました");
     } catch (error) {

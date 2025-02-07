@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User } from "lucide-react";
 import { toast } from "sonner";
@@ -22,18 +21,14 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
   const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      return profile;
+      // モックデータを返す
+      return {
+        display_name: "テストユーザー",
+        email: "test@example.com",
+        avatar_url: null
+      };
     },
     enabled: open,
-    staleTime: 1000 * 60 * 5, // 5分間キャッシュを保持
-    gcTime: 1000 * 60 * 30, // 30分間キャッシュを保持
   });
 
   useEffect(() => {
@@ -47,16 +42,8 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
     setIsLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("ユーザーが見つかりません");
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({ display_name: displayName })
-        .eq("id", user.id);
-
-      if (error) throw error;
-
+      // モックの更新処理
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast.success("プロフィールを更新しました");
       onOpenChange(false);

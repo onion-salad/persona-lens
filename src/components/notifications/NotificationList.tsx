@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { MessageSquare } from "lucide-react";
@@ -8,12 +7,19 @@ export const NotificationList = () => {
   const { data: notifications } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10);
-      return data || [];
+      // モックデータを返す
+      return [
+        {
+          id: "1",
+          content: "新機能が追加されました！",
+          created_at: new Date().toISOString()
+        },
+        {
+          id: "2",
+          content: "プロフィールを更新してください",
+          created_at: new Date().toISOString()
+        }
+      ];
     },
   });
 

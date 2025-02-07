@@ -7,17 +7,13 @@ import {
 } from "@/components/ui/popover";
 import { NotificationList } from "./NotificationList";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 
 export const NotificationButton = () => {
   const { data: unreadCount } = useQuery({
     queryKey: ["unreadNotifications"],
     queryFn: async () => {
-      const { count } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("is_read", false);
-      return count || 0;
+      // モックデータを返す
+      return 2;
     },
   });
 
