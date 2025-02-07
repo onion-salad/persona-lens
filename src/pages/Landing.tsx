@@ -1,35 +1,8 @@
-
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
-import { toast } from "sonner";
 
 const Landing = () => {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          navigate("/steps");
-        }
-      } catch (error) {
-        console.error("Auth error:", error);
-        toast.error("認証エラーが発生しました");
-      }
-    };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        navigate("/steps");
-      }
-    });
-
-    checkAuth();
-    return () => subscription.unsubscribe();
-  }, [navigate]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-cover bg-center bg-no-repeat relative"
@@ -44,7 +17,7 @@ const Landing = () => {
           多様なペルソナの視点からウェブサイトの第一印象を分析
         </p>
         <Button 
-          onClick={() => navigate("/auth")} 
+          onClick={() => navigate("/steps")} 
           className="text-lg px-8 py-6 bg-white text-black hover:bg-white/90 transform transition hover:scale-105"
         >
           始める
