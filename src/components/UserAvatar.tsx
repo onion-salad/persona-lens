@@ -20,7 +20,6 @@ const UserAvatar = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const navigate = useNavigate();
 
-  // モックデータを使用
   const { data: profile } = useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
@@ -31,6 +30,13 @@ const UserAvatar = () => {
       };
     },
   });
+
+  useEffect(() => {
+    console.log("UserAvatar settings state changed:", {
+      isSettingsOpen,
+      profile: profile || "not loaded"
+    });
+  }, [isSettingsOpen, profile]);
 
   const handleLogout = async () => {
     try {
@@ -70,7 +76,10 @@ const UserAvatar = () => {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
+            <DropdownMenuItem onClick={() => {
+              console.log("Settings menu item clicked");
+              setIsSettingsOpen(true);
+            }}>
               <Settings className="mr-2 h-4 w-4" />
               アカウント設定
             </DropdownMenuItem>
@@ -89,7 +98,10 @@ const UserAvatar = () => {
 
       <ProfileSettingsDialog 
         open={isSettingsOpen} 
-        onOpenChange={setIsSettingsOpen}
+        onOpenChange={(open) => {
+          console.log("ProfileSettingsDialog onOpenChange called:", { open, currentState: isSettingsOpen });
+          setIsSettingsOpen(open);
+        }}
       />
     </div>
   );

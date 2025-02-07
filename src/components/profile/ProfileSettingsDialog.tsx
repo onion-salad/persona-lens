@@ -34,6 +34,11 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
 
   useEffect(() => {
     if (profile && open) {
+      console.log("ProfileSettingsDialog opened:", {
+        profile,
+        currentDisplayName: displayName,
+        currentApiKey: apiKey ? "exists" : "not set"
+      });
       setDisplayName(profile.display_name || "");
       setApiKey(getApiKey() || "");
     }
@@ -59,6 +64,13 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
   };
 
   const handleOpenChange = (newOpen: boolean) => {
+    console.log("ProfileSettingsDialog state changing:", {
+      newOpen,
+      currentOpen: open,
+      isLoading,
+      profile: profile || "not loaded"
+    });
+
     if (!newOpen) {
       setDisplayName(profile?.display_name || "");
       setApiKey(getApiKey() || "");
@@ -68,6 +80,7 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
   };
 
   if (isProfileLoading) {
+    console.log("ProfileSettingsDialog is loading");
     return null;
   }
 
