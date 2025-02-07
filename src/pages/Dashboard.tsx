@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
-import { ExecutionHistoryItem, SupabaseExecutionHistory, SupabaseFeedback } from "@/types/feedback";
+import { ExecutionHistoryItem } from "@/types/feedback";
 
 const Dashboard = () => {
   const [history, setHistory] = useState<ExecutionHistoryItem[]>([]);
@@ -14,48 +13,24 @@ const Dashboard = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchHistory();
+    // モックデータを使用
+    const mockHistory: ExecutionHistoryItem[] = [
+      {
+        id: "1",
+        target_gender: "all",
+        target_age: "20-30",
+        target_income: "middle",
+        service_description: "オンラインヨガサービス",
+        usage_scene: "在宅勤務の合間にリフレッシュ",
+        personas: ["20代女性", "30代男性"],
+        feedbacks: [],
+        created_at: new Date().toISOString(),
+        user_id: null
+      }
+    ];
+    setHistory(mockHistory);
+    setIsLoading(false);
   }, []);
-
-  const fetchHistory = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("execution_history")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      // データの型を変換
-      const typedData: ExecutionHistoryItem[] = (data as any[])?.map(item => ({
-        ...item,
-        personas: Array.isArray(item.personas) ? item.personas.map(String) : [],
-        feedbacks: Array.isArray(item.feedbacks) 
-          ? (item.feedbacks as any[]).map(f => ({
-              persona: String(f.persona),
-              feedback: {
-                firstImpression: String(f.feedback.firstImpression),
-                appealPoints: f.feedback.appealPoints.map(String),
-                improvements: f.feedback.improvements.map(String),
-                summary: String(f.feedback.summary)
-              },
-              selectedImageUrl: f.selectedImageUrl ? String(f.selectedImageUrl) : null
-            }))
-          : []
-      })) || [];
-
-      setHistory(typedData);
-    } catch (error) {
-      console.error("Error fetching history:", error);
-      toast({
-        title: "エラーが発生しました",
-        description: "履歴の取得に失敗しました。",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const formatDate = (date: string) => {
     return format(new Date(date), "yyyy年MM月dd日 HH:mm", { locale: ja });
@@ -106,7 +81,7 @@ const Dashboard = () => {
                       <p className="text-sm">{item.personas.length}人</p>
                     </div>
                   </div>
-                  {item.feedbacks && (
+                  {item.feedbacks && item.feedbacks.length > 0 && (
                     <div>
                       <h3 className="font-medium mb-2">フィードバック数</h3>
                       <p className="text-sm">{item.feedbacks.length}件</p>

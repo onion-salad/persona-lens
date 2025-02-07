@@ -1,7 +1,6 @@
 import { useState } from "react";
 import ContentForm from "@/components/ContentForm";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Feedback } from "@/types/feedback";
 
 interface ContentCreationProps {
@@ -20,69 +19,44 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
 
     try {
       if (images && images.length > 0) {
-        console.log("Uploading images...");
+        console.log("Processing images...");
+        // ここでは一時的に画像をBase64として扱います
         for (const image of images) {
-          console.log("Uploading image:", image.name);
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('feedback-images')
-            .upload(`${Date.now()}-${image.name}`, image);
-
-          if (uploadError) {
-            console.error('Upload error:', uploadError);
-            throw uploadError;
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('feedback-images')
-            .getPublicUrl(uploadData.path);
-            
-          imageUrls.push(publicUrl);
-          console.log("Image uploaded successfully:", publicUrl);
+          const reader = new FileReader();
+          const imageUrl = await new Promise<string>((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(image);
+          });
+          imageUrls.push(imageUrl);
         }
       }
 
-      console.log("Invoking generate-feedback function with:", {
+      console.log("Generating feedback with:", {
         content,
         imageUrls,
         personas
       });
 
-      const { data: feedbackData, error: feedbackError } = await supabase.functions.invoke('generate-feedback', {
-        body: { 
-          content,
-          imageUrls,
-          personas
-        }
-      });
-
-      console.log("Response from generate-feedback:", { feedbackData, feedbackError });
-
-      if (feedbackError) {
-        console.error('Feedback generation error:', feedbackError);
-        throw feedbackError;
-      }
-
-      const typedFeedbacks: Feedback[] = feedbackData.feedbacks.map((f: any) => ({
-        persona: f.persona,
+      // モックのフィードバックデータを生成
+      const mockFeedbacks: Feedback[] = personas.map(persona => ({
+        persona,
         feedback: {
-          firstImpression: f.feedback.firstImpression,
-          appealPoints: f.feedback.appealPoints,
-          improvements: f.feedback.improvements,
-          summary: f.feedback.summary
+          firstImpression: "この製品は興味深い特徴を持っています。",
+          appealPoints: ["使いやすさ", "デザイン", "機能性"],
+          improvements: ["より詳細な説明があるとよい", "価格設定の見直し"],
+          summary: "総じて良い印象です。"
         },
-        selectedImageUrl: f.selectedImageUrl || null
+        selectedImageUrl: imageUrls.length > 0 ? imageUrls[0] : null
       }));
 
-      console.log('Generated feedbacks:', typedFeedbacks);
-      
-      onFeedbackGenerated(typedFeedbacks);
+      onFeedbackGenerated(mockFeedbacks);
 
       toast({
         title: "フィードバックを生成しました",
         description: "各ペルソナからのフィードバックが生成されました。",
       });
     } catch (error) {
-      console.error('Detailed error:', error);
+      console.error('Error generating feedback:', error);
       toast({
         title: "エラーが発生しました",
         description: "フィードバックの生成に失敗しました。",
