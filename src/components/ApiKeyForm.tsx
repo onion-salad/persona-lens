@@ -1,16 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { saveApiKey, getApiKey } from "@/utils/apiKey";
+import { useNavigate } from "react-router-dom";
 
-interface ApiKeyFormProps {
-  onSubmit: (apiKey: string) => void;
-}
-
-const ApiKeyForm = ({ onSubmit }: ApiKeyFormProps) => {
+const ApiKeyForm = () => {
   const [apiKey, setApiKey] = useState("");
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const savedApiKey = getApiKey();
+    if (savedApiKey) {
+      navigate("/steps");
+    }
+  }, [navigate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,11 +28,12 @@ const ApiKeyForm = ({ onSubmit }: ApiKeyFormProps) => {
       });
       return;
     }
-    onSubmit(apiKey.trim());
+    saveApiKey(apiKey.trim());
     toast({
       title: "成功",
       description: "APIキーを保存しました",
     });
+    navigate("/steps");
   };
 
   return (

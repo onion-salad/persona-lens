@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User } from "lucide-react";
 import { toast } from "sonner";
+import { saveApiKey, getApiKey } from "@/utils/apiKey";
 
 interface ProfileSettingsDialogProps {
   open: boolean;
@@ -15,13 +16,13 @@ interface ProfileSettingsDialogProps {
 
 export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDialogProps) => {
   const [displayName, setDisplayName] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
-      // モックデータを返す
       return {
         display_name: "テストユーザー",
         email: "test@example.com",
@@ -34,6 +35,7 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
   useEffect(() => {
     if (profile && open) {
       setDisplayName(profile.display_name || "");
+      setApiKey(getApiKey() || "");
     }
   }, [profile, open]);
 
@@ -42,14 +44,15 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
     setIsLoading(true);
 
     try {
-      // モックの更新処理
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (apiKey) {
+        saveApiKey(apiKey);
+      }
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
-      toast.success("プロフィールを更新しました");
+      toast.success("設定を更新しました");
       onOpenChange(false);
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast.error("プロフィールの更新に失敗しました");
+      toast.error("設定の更新に失敗しました");
     } finally {
       setIsLoading(false);
     }
@@ -58,6 +61,7 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setDisplayName(profile?.display_name || "");
+      setApiKey(getApiKey() || "");
       setIsLoading(false);
     }
     onOpenChange(newOpen);
@@ -73,7 +77,7 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
         <DialogHeader>
           <DialogTitle>プロフィール設定</DialogTitle>
           <DialogDescription>
-            プロフィール情報を更新できます
+            プロフィール情報とAPIキーを更新できます
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -93,6 +97,28 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="表示名を入力"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="apiKey">Gemini APIキー</Label>
+            <Input
+              id="apiKey"
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="APIキーを入力"
+            />
+            <p className="text-sm text-gray-500">
+              APIキーは
+              <a 
+                href="https://ai.google.dev/gemini-api/docs?hl=ja" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 underline"
+              >
+                こちら
+              </a>
+              から取得できます
+            </p>
           </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={isLoading}>
