@@ -6,9 +6,7 @@ import PersonaConfirmation from "@/components/steps/PersonaConfirmation";
 import ContentCreation from "@/components/steps/ContentCreation";
 import FeedbackResults from "@/components/steps/FeedbackResults";
 import AnalyticsView from "@/components/steps/AnalyticsView";
-import { PersonaFormData } from "@/components/PersonaForm";
 import { useStepNavigation } from "@/hooks/useStepNavigation";
-import { useAuthCheck } from "@/hooks/useAuthCheck";
 import StepContainer from "@/components/steps/StepContainer";
 import StepHeader from "@/components/steps/StepHeader";
 import { useStepsState } from "@/hooks/useStepsState";
@@ -41,8 +39,6 @@ const Steps = () => {
   const location = useLocation();
   const { currentStep, setCurrentStep, handleStepClick, resetSteps } = useStepNavigation();
   const { personas, setPersonas, feedbacks, setFeedbacks, formData, setFormData, resetState } = useStepsState();
-
-  useAuthCheck();
 
   useEffect(() => {
     if (location.state?.reset) {
