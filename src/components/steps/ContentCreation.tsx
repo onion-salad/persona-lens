@@ -41,7 +41,12 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
         }
       }
 
-      console.log("Invoking generate-feedback function...");
+      console.log("Invoking generate-feedback function with:", {
+        content,
+        imageUrls,
+        personas
+      });
+
       const { data: feedbackData, error: feedbackError } = await supabase.functions.invoke('generate-feedback', {
         body: { 
           content,
@@ -52,7 +57,10 @@ const ContentCreation = ({ personas, onFeedbackGenerated }: ContentCreationProps
 
       console.log("Response from generate-feedback:", { feedbackData, feedbackError });
 
-      if (feedbackError) throw feedbackError;
+      if (feedbackError) {
+        console.error('Feedback generation error:', feedbackError);
+        throw feedbackError;
+      }
 
       const typedFeedbacks: Feedback[] = feedbackData.feedbacks.map((f: any) => ({
         persona: f.persona,
