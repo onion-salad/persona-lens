@@ -1,3 +1,4 @@
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,29 +64,13 @@ export const ProfileSettingsDialog = ({ open, onOpenChange }: ProfileSettingsDia
     }
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
-    console.log("ProfileSettingsDialog state changing:", {
-      newOpen,
-      currentOpen: open,
-      isLoading,
-      profile: profile || "not loaded"
-    });
-
-    if (!newOpen) {
-      setDisplayName(profile?.display_name || "");
-      setApiKey(getApiKey() || "");
-      setIsLoading(false);
-    }
-    onOpenChange(newOpen);
-  };
-
   if (isProfileLoading) {
     console.log("ProfileSettingsDialog is loading");
     return null;
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>プロフィール設定</DialogTitle>
