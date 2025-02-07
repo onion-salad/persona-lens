@@ -10,18 +10,16 @@ const queryClient = new QueryClient();
 
 function App() {
   return (
-    <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/steps" element={<Steps />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-          </Routes>
-          <Toaster />
-        </Router>
-      </QueryClientProvider>
-    </StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/steps" element={<Steps />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+        <Toaster />
+      </Router>
+    </QueryClientProvider>
   );
 }
 
