@@ -1,25 +1,33 @@
 import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' }); // .env.local を明示的に読み込む
+// .env.development を読み込むようにパスを指定
+dotenv.config({ path: './my-mastra-app/.env.development' });
 
-// import { mastra } from "./mastra"; // Mastra インスタンスは使わない
-import { generatePersonaProfileTool } from './mastra/tools/persona-profile-tool'; // ツールを直接インポート
+import { mastra } from "../my-mastra-app/src/mastra"; // Mastra インスタンスをインポート
 
-async function testToolDirectly() {
-  console.log("generatePersonaProfileTool を直接テストします...");
-  console.log("トピック: テクノロジー好きの大学生");
+async function testWorkflow() {
+  console.log("Mastra ワークフローをテストします...");
+  const workflowName = "personaGenerationWorkflow";
 
   try {
-    // ツールを直接実行
-    const result = await generatePersonaProfileTool.execute({
-       context: { // execute が context を期待している
-         topic: "テクノロジー好きの大学生" // inputSchema から渡される想定の値
-       },
-       runtimeContext: {} // 必須プロパティを追加
-       // as any は不要になるかも？一旦残す
-    } as any);
+    const workflow = mastra.getWorkflow(workflowName);
+    if (!workflow) {
+      console.error(`ワークフロー '${workflowName}' が見つかりません。`);
+      return;
+    }
 
-    console.log("\n--- ツールの直接実行結果 ---");
-    console.log(JSON.stringify(result, null, 2));
+    console.log(`ワークフロー '${workflowName}' を取得しました。`);
+    console.log("ワークフローを実行します (トピック: 料理好きの主婦)...");
+
+    // ワークフロー実行を作成し、開始
+    const { runId, start } = workflow.createRun();
+    console.log(`Run ID: ${runId}`);
+
+    const runResult = await start({
+      triggerData: { topic: "料理好きの主婦" }, // トリガーデータを渡す
+    });
+
+    console.log("\n--- ワークフロー実行結果 ---");
+    console.log("Results:", JSON.stringify(runResult.results, null, 2));
 
   } catch (error) {
     console.error("\n--- エラーが発生しました ---");
@@ -28,4 +36,4 @@ async function testToolDirectly() {
 }
 
 // テスト関数を実行
-testToolDirectly(); 
+testWorkflow(); 
