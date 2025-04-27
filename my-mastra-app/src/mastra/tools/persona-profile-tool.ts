@@ -2,24 +2,27 @@
 // dotenv.config({ path: '../../../.env.local' });
 
 import { createTool } from "@mastra/core/tools";
-import { openai } from "@ai-sdk/openai";
-// import { Agent } from "@mastra/core/agent"; // Agent は使わない
+// import { openai } from "@ai-sdk/openai"; // デフォルトは使わない
 import { generateObject } from 'ai'; // AI SDK の generateObject をインポート
 import { z } from "zod";
+import { configuredOpenAI } from "../../config"; // パスを修正
 
 // 内部エージェント定義は削除
 
 // ペルソナ生成ツールの定義
+const inputSchema = z.object({
+  topic: z.string().describe("生成したいペルソナのトピックやテーマ"),
+});
+const outputSchema = z.object({
+  name: z.string().describe("生成されたペルソナの名前"),
+  description: z.string().describe("生成されたペルソナの簡単な説明"),
+});
+
 export const generatePersonaProfileTool = createTool({
   id: "generate-persona-profile",
   description: "指定されたトピックに基づいて、簡単なペルソナのプロフィール（名前と説明）を生成します。",
-  inputSchema: z.object({
-    topic: z.string().describe("生成したいペルソナのトピックやテーマ"),
-  }),
-  outputSchema: z.object({
-    name: z.string().describe("生成されたペルソナの名前"),
-    description: z.string().describe("生成されたペルソナの簡単な説明"),
-  }),
+  inputSchema: inputSchema,
+  outputSchema: outputSchema,
   execute: async ({ context }) => {
     const topic = context.topic;
     if (!topic) {
@@ -29,25 +32,18 @@ export const generatePersonaProfileTool = createTool({
     const prompt = `以下のトピックに基づいた架空の人物像を考えてください: \"${topic}\"\n\n名前(name)と短い説明(description)を生成してください。`;
 
     try {
-      // Agent の代わりに generateObject を直接使用
       const { object } = await generateObject({
-        model: openai("gpt-4o-mini"), // モデルを指定
-        schema: z.object({ // 出力スキーマを指定
-          name: z.string(),
-          description: z.string(),
-        }),
-        prompt: prompt, // プロンプトを指定
+        model: configuredOpenAI("gpt-4o-mini"), // 設定済みクライアントを使用
+        schema: outputSchema, 
+        prompt: prompt,
       });
-
-      return object; // 生成されたオブジェクトを返す
-
+      return object;
     } catch (error) {
-      console.error("Error calling generateObject:", error);
-      // API キーエラーなどもここでキャッチされるはず
+      console.error("Error calling generateObject in generatePersonaProfileTool:", error);
       if (error instanceof Error && error.message.includes('API key')) {
-         throw new Error("OpenAI API キーが見つからないか無効です。my-mastra-app/.env.local を確認してください。");
+         throw new Error("OpenAI API キー設定エラー (generatePersonaProfileTool)。config.ts または環境変数を確認してください。");
       }
-      throw new Error("ペルソナプロファイルの生成中にエラーが発生しました。");
+      throw new Error("ペルソナプロファイル生成中にエラーが発生しました。", { cause: error });
     }
   },
 }); 
