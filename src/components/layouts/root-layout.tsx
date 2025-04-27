@@ -1,7 +1,7 @@
-
 "use client"
 
-import { Sidebar } from "@/components/layouts/sidebar"
+// import { Sidebar } from "@/components/layouts/sidebar"
+import { Header } from "@/components/layouts/header"
 import { ReactNode } from "react"
 
 interface RootLayoutProps {
@@ -10,9 +10,12 @@ interface RootLayoutProps {
 
 export function RootLayout({ children }: RootLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <Sidebar />
-      <main className="flex-1 overflow-auto p-4 md:p-6 w-full">
+    // flex-col のみにして、サイドバー部分を削除
+    <div className="flex min-h-screen flex-col bg-white">
+      <Header />
+      {/* <Sidebar /> */}
+      {/* メインコンテンツが全幅になるように調整 */}
+      <main className="flex-1 overflow-auto p-4 md:p-6">
         {children}
       </main>
     </div>
