@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "mastra": {
+    "supabase": {
       "command": "npx",
-      "args": ["-y", "@mastra/mcp-docs-server@latest"]
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://postgres:postgres@127.0.0.1:54322/postgres"]
     }
   }
-}
+} 
