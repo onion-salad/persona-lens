@@ -2,7 +2,7 @@ import { motion } from "framer-motion"
 import { Globe } from "@/components/ui/globe"
 import type { COBEOptions } from "cobe"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Sparkles, BrainCircuit, Settings, ClipboardList } from "lucide-react"
+import { Sparkles, BrainCircuit, Settings, ClipboardList, ArrowRight } from "lucide-react"
 import { Link } from "react-router-dom"
 import { NotificationList } from "@/components/ui/notification-list"
 import {
@@ -81,20 +81,18 @@ export function HomePage() {
                 transition={{ duration: 0.5, delay: 0.2 }}
                 className="max-w-[600px] text-lg md:text-xl text-gray-600 mx-auto md:mx-0"
               >
-                AIが生み出す80億人を超える多様なペルソナ。
-                <br className="hidden sm:block" />
-                あなたのプロダクトを、かつてない視点で検証します。
-              </motion.p>
+                AIが生み出す80億人を超える多様なペルソナ。<br className="hidden sm:block" />あなたのプロダクトをかつてない視点で検証します。</motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-                className="flex justify-center md:justify-start"
+                transition={{ duration: 0.5, delay: 0.3 }} // delay を 0.3 に変更
+                className="mb-8 flex justify-center md:justify-start" // mt-12削除, mb-8 に, レスポンシブな左寄せ追加
               >
-                <Button size="lg" variant="default" className="group bg-gray-900 text-white hover:bg-gray-700" asChild>
-                  <Link to="/persona/generate">
-                    今すぐ始める
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                {/* ボタンデザインをモノクロに、さらに大きく */}
+                <Button size="lg" className="group px-10 py-7 text-xl font-semibold bg-gray-900 text-white hover:bg-gray-700 shadow-lg transition duration-300 ease-in-out transform hover:scale-105 rounded-lg" asChild>
+                  <Link to="/persona-simulation">
+                    無料でペルソナ生成を開始
+                    <ArrowRight className="ml-3 h-6 w-6 transition-transform duration-300 ease-in-out group-hover:translate-x-1" /> {/* アイコンも少し大きく、マージン調整 */}
                   </Link>
                 </Button>
               </motion.div>
@@ -110,67 +108,6 @@ export function HomePage() {
               <div className="absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-gray-200/20 blur-3xl" /> */}
             </div>
           </div>
-
-          {/* --- アクションカードセクション --- */}
-          <div className="mb-16 grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Card className="border-gray-200 bg-white">
-              <CardHeader>
-                <CardTitle className="flex items-center text-gray-900">
-                  <Settings className="mr-2 h-5 w-5 text-gray-600" /> 環境を生成
-                </CardTitle>
-                <CardDescription className="text-gray-600">
-                  シミュレーションの舞台となる環境を作成・設定します。
-                </CardDescription>
-              </CardHeader>
-              <CardContent>{/* 必要ならコンテンツ追加 */}</CardContent>
-              <CardFooter>
-                <Link to="/environment-creation" className="w-full">
-                  <Button variant="default" className="w-full bg-gray-900 text-white hover:bg-gray-700">
-                    生成を開始
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-
-            <Card className="border-gray-200 bg-white">
-              <CardHeader>
-                <CardTitle className="flex items-center text-gray-900">
-                   <BrainCircuit className="mr-2 h-5 w-5 text-gray-600" /> AI人格を生成
-                </CardTitle>
-                <CardDescription className="text-gray-600">
-                  環境で活動する多様なAIペルソナを作成します。
-                </CardDescription>
-              </CardHeader>
-              <CardContent>{/* 必要ならコンテンツ追加 */}</CardContent>
-              <CardFooter>
-                <Link to="/persona-creation" className="w-full">
-                  <Button variant="default" className="w-full bg-gray-900 text-white hover:bg-gray-700">
-                    生成を開始
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-
-            <Card className="border-gray-200 bg-white">
-              <CardHeader>
-                <CardTitle className="flex items-center text-gray-900">
-                  <ClipboardList className="mr-2 h-5 w-5 text-gray-600" /> サービスを登録
-                </CardTitle>
-                <CardDescription className="text-gray-600">
-                  評価対象となるサービスやプロダクトを登録します。
-                </CardDescription>
-              </CardHeader>
-              <CardContent>{/* 必要ならコンテンツ追加 */}</CardContent>
-              <CardFooter>
-                <Link to="/service-registration" className="w-full">
-                  <Button variant="default" className="w-full bg-gray-900 text-white hover:bg-gray-700">
-                    登録を開始
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-          </div>
-          {/* --- アクションカードセクション終 --- */}
 
           {/* 通知リスト */}
           <div className="mt-0 overflow-hidden">

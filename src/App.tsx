@@ -1,6 +1,7 @@
 import { RootLayout } from "@/components/layouts/root-layout"
 import { HomePage } from "@/pages/home"
 // import { PersonaGenerationFlow } from "@/features/persona/components/persona-generation-flow"
+import { PersonaSimulationPage } from "@/pages/persona-simulation/page"
 import { BrowserRouter, Route, Routes } from "react-router-dom"
 
 export function App() {
@@ -9,6 +10,7 @@ export function App() {
       <RootLayout>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/persona-simulation" element={<PersonaSimulationPage />} />
           {/* <Route path="/persona/generate" element={<PersonaGenerationFlow />} /> */}
         </Routes>
       </RootLayout>
