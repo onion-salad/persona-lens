@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button"
 
 export function Header() {
   const location = useLocation()
+  const isSimulationPage = location.pathname === '/persona-simulation';
+  const totalSteps = 5;
+  // TODO: Get actual current step from state management (e.g., Zustand)
+  const currentStepForDisplay = isSimulationPage ? 0 : -1; // Placeholder, always shows first step or none
 
   const navigation = [
     { name: "ホーム", href: "/" },
@@ -45,6 +49,21 @@ export function Header() {
           </nav>
         </div>
       </div>
+      {/* --- Simulation Progress Bar (visible only on simulation page) --- */}
+      {isSimulationPage && (
+        <div className="w-full h-1 bg-gray-200"> {/* Bar background */}
+          <div className="flex h-full">
+            {Array.from({ length: totalSteps }).map((_, index) => (
+              <div
+                key={index}
+                className={`flex-1 transition-colors duration-300 ${
+                  index <= currentStepForDisplay ? 'bg-gray-900' : 'bg-transparent'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </header>
   )
 } 
