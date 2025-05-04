@@ -314,8 +314,8 @@ const OrchestratorChat: React.FC<{
   };
 
   return (
-    // Card, CardHeader, CardContent を削除。ルートをdivに変更し、スタイル調整。
-    <div className="w-full bg-white p-6 rounded-lg flex flex-col h-full"> {/* 例: p-6, 背景, 角丸, 高さ確保 */} 
+    // h-full を削除し、flex-grow は維持
+    <div className="w-full bg-white p-6 rounded-lg flex flex-col flex-grow"> {/* BG Yellow */}
       {/* --- チャット設定エリア --- */}
       <div className="pb-4 mb-4 border-b border-gray-100"> 
         <div className="flex items-center space-x-2 justify-end"> 
@@ -332,10 +332,10 @@ const OrchestratorChat: React.FC<{
       </div>
       {/* --- ここまでチャット設定エリア --- */}
 
-      {/* --- メインチャットエリア (flex-growで高さを埋める) --- */} 
-      <div className="flex-grow flex flex-col space-y-4">
+      {/* --- メインチャットエリア (flex-growで高さを埋める) --- */}
+      <div className="flex-grow flex flex-col space-y-4"> {/* BG Green */}
         {/* チャット履歴 */} 
-        <ScrollArea className="w-full rounded-md p-4 bg-gray-50 flex-grow">
+        <ScrollArea className="w-full rounded-md p-4 bg-gray-50 flex-grow"> {/* BG Blue */}
           <div className="space-y-4">
             {chatHistory.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -599,28 +599,44 @@ export function PersonaSimulationPage() {
   }, [resetStep]); 
 
   return (
-    // Layout adjustments for full height usage
+    // h-full を削除し flex-grow を追加
     <div className="w-full flex flex-col flex-grow bg-white px-8 pt-8 pb-8 text-gray-900">
       
-      {/* メインコンテンツエリア (flex-grow を維持) */}
+      <div className="w-full flex justify-center">
+        {/* SimulationSteps の呼び出し削除済み */}
+      </div>
+      
+      {/* メインコンテンツエリア */} 
       <div className="w-full flex-grow flex flex-col mt-6"> 
         
         {/* Step 0, 1, 2 の表示エリア */}
         {(currentStep === 0 || currentStep === 1 || currentStep === 2) && (
-          <div className="flex-grow flex justify-center items-start pt-10">
-            {currentStep === 0 && <Step1_Input onSubmit={handleStep1Submit} />}
-            {currentStep === 1 && aiSuggestion && (
-              <Step2_Confirmation
-                suggestion={aiSuggestion}
-                onApprove={handleStep2Approve}
-                onRegenerate={handleStep2Regenerate}
-              />
+          // justify-center を削除し、背景色を削除。items-center は維持。
+          <div className="flex-grow flex items-center">
+            {/* 各ステップコンポーネントを div でラップして mx-auto で中央揃え */}
+            {currentStep === 0 && (
+              <div className="w-full max-w-6xl mx-auto">
+                <Step1_Input onSubmit={handleStep1Submit} />
+              </div>
             )}
-            {currentStep === 2 && <Step3_Generation />}
+            {currentStep === 1 && aiSuggestion && (
+              <div className="w-full max-w-6xl mx-auto">
+                <Step2_Confirmation
+                  suggestion={aiSuggestion}
+                  onApprove={handleStep2Approve}
+                  onRegenerate={handleStep2Regenerate}
+                />
+              </div>
+            )}
+            {currentStep === 2 && (
+              <div className="w-full max-w-6xl mx-auto">
+                <Step3_Generation />
+              </div>
+            )}
           </div>
         )}
 
-        {/* 結果表示エリア (ステップ3以上) (flex-grow を維持) */}
+        {/* 結果表示エリア (ステップ3以上) */}
         {currentStep >= 3 && resultSets.length > 0 && (
           <div className="w-full flex flex-col items-center flex-grow">
             {/* 結果セット切り替えボタン */}
@@ -646,34 +662,30 @@ export function PersonaSimulationPage() {
                 </div>
             )}
 
-            {/* ResizablePanelGroup: border を削除 */}
+            {/* ResizablePanelGroup */}
             <ResizablePanelGroup 
               direction="horizontal"
-              className="w-full rounded-lg flex-grow" // border を削除
+              className="w-full rounded-lg flex-grow flex" 
             >
-              <ResizablePanel defaultSize={50}>
-                {/* Wrapper div を削除し、Step4_Results を直接配置。Panelにpadding追加。 */}
-                {/* <div className="flex h-full items-center justify-center p-0"> */} 
+              {/* テーブル側 Panel */}
+              <ResizablePanel defaultSize={50} className="overflow-auto">
                 <Step4_Results 
                   results={resultSets[displayedResultSetIndex].personas} 
                   onUpdatePersona={handleUpdatePersona} 
                   selectedPersonaIds={selectedPersonaIds}
                   onTogglePersonaSelection={handleTogglePersonaSelection}
                 />
-                {/* </div> */}
               </ResizablePanel>
               <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={50}>
-                 {/* Wrapper div を削除し、OrchestratorChat を直接配置。Panelにpadding追加。 */} 
+              {/* チャット側 Panel */}
+              <ResizablePanel defaultSize={50} className="flex flex-col overflow-hidden">
                  {currentStep === 4 && (
-                    // <div className="flex h-full items-center justify-center p-0">
                       <OrchestratorChat 
                         chatHistory={chatHistory} 
                         onSendMessage={handleSendMessageToOrchestrator}
                         isPersonaMode={isPersonaChatMode}
                         onPersonaModeChange={handlePersonaChatModeChange}
                       />
-                    // </div>
                   )}
               </ResizablePanel>
             </ResizablePanelGroup>
