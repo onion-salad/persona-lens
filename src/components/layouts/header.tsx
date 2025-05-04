@@ -2,13 +2,16 @@ import { Link, useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 // import { ModeToggle } from "@/components/mode-toggle"
+import { useSimulationStore } from "@/lib/store/simulationStore"
 
 export function Header() {
   const location = useLocation()
   const isSimulationPage = location.pathname === '/persona-simulation';
-  const totalSteps = 5;
-  // TODO: Get actual current step from state management (e.g., Zustand)
-  const currentStepForDisplay = isSimulationPage ? 0 : -1; // Placeholder, always shows first step or none
+  const totalSteps = 4;
+  const currentStep = useSimulationStore((state) => state.currentStep);
+  const displayStep = Math.min(currentStep, 3);
+  // TODO: Remove this line once state management is fully integrated
+  // const currentStepForDisplay = isSimulationPage ? 0 : -1; // Placeholder削除
 
   const navigation = [
     { name: "ホーム", href: "/" },
@@ -57,7 +60,7 @@ export function Header() {
               <div
                 key={index}
                 className={`flex-1 transition-colors duration-300 ${
-                  index <= currentStepForDisplay ? 'bg-gray-900' : 'bg-transparent'
+                  index <= displayStep ? 'bg-gray-900' : 'bg-transparent'
                 }`}
               />
             ))}

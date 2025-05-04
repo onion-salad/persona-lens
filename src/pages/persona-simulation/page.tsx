@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Bot, User, Sparkles, ChevronRight, ArrowRight, Loader2 } from 'lucide-r
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { useSimulationStore } from "@/lib/store/simulationStore"; // ストアをインポート
 
 // 仮の型定義
 type AIPersona = {
@@ -408,7 +409,14 @@ const OrchestratorChat: React.FC<{
 
 // --- メインページコンポーネント --- 
 export function PersonaSimulationPage() {
-  const [currentStep, setCurrentStep] = useState(0);
+  // Zustandストアから状態とアクションを取得
+  const currentStep = useSimulationStore((state) => state.currentStep);
+  const setCurrentStep = useSimulationStore((state) => state.setCurrentStep);
+  const incrementStep = useSimulationStore((state) => state.incrementStep); 
+  const resetStep = useSimulationStore((state) => state.resetStep); // 必要に応じてリセット用
+
+  // ローカルステートを削除
+  // const [currentStep, setCurrentStep] = useState(0); 
   const [userRequest, setUserRequest] = useState<string>('');
   const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
   const [resultSets, setResultSets] = useState<ResultSet[]>([]);
@@ -417,7 +425,7 @@ export function PersonaSimulationPage() {
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
   const [isPersonaChatMode, setIsPersonaChatMode] = useState<boolean>(false);
 
-  // Step 1 -> Step 2 (仮のAI提案生成ロジック)
+  // Step 1 -> Step 2 
   const handleStep1Submit = (request: string) => {
     setUserRequest(request);
     // --- ここで本来はAPIを呼び出しAI提案を取得 ---
@@ -432,13 +440,12 @@ export function PersonaSimulationPage() {
     setCurrentStep(1);
   };
 
-  // Step 2 -> Step 3 (承認) -> Step 4 (結果表示) -> Step 5 (対話開始)
+  // Step 2 -> Step 3 -> Step 4 -> Step 5
   const handleStep2Approve = () => {
-    setCurrentStep(2); // Step 3: 生成中へ
-    // --- ここで本来はペルソナ生成APIを呼び出す ---
-    // 仮のタイマーで Step 4 & 5 へ
+    // ストアのステップを更新 (生成中へ)
+    setCurrentStep(2);
     setTimeout(() => {
-      // --- APIから結果取得後 --- 
+       // --- APIから結果取得後 --- 
        const initialResults: AIPersona[] = [
          { id: 'p1', name: '佐藤 優子', details: '32歳女性, 東京在住, IT企業勤務, アプリに詳しい', response: 'UIは直感的だが、検索機能が欲しい。ないと不便。' },
          { id: 'p2', name: 'John Smith', details: '45歳男性, NY在住, マーケティングマネージャー, 多忙', response: '機能は十分だが、モバイルアプリ版がないと使わない。' },
@@ -459,17 +466,16 @@ export function PersonaSimulationPage() {
            content: '初期シミュレーションが完了しました。結果について質問や、追加の分析依頼があればどうぞ。'
          }
        ]);
-      // --- ここまで仮 ---
-       setCurrentStep(4); // Step 5: 対話モードへ
-    }, 3000); // 3秒後に結果表示 & 対話開始
+       // ストアのステップを更新 (対話モードへ)
+       setCurrentStep(4);
+    }, 3000); 
   };
 
-  // Step 2 -> Step 1 (再生成)
+  // Step 2 -> Step 1 (Regenerate)
   const handleStep2Regenerate = (feedback?: string) => {
     console.log('再生成依頼:', feedback);
-    // --- ここで本来はフィードバックと共に提案生成APIを再呼び出し ---
-    // 仮実装: 
     alert('再生成機能は未実装です。フィードバック: ' + (feedback || 'なし'));
+    // 必要であれば setCurrentStep(0) や setCurrentStep(1) を呼ぶ
   };
 
   // オーケストレーターAIにメッセージを送信
@@ -582,6 +588,15 @@ export function PersonaSimulationPage() {
   const handlePersonaChatModeChange = (checked: boolean) => {
     setIsPersonaChatMode(checked);
   };
+
+  // コンポーネントマウント時にステップをリセット (任意)
+  useEffect(() => {
+    resetStep(); // ページ表示時にステップを0に戻す
+    // クリーンアップ関数も定義した方が良い場合がある
+    return () => {
+      // 必要に応じてページ離脱時の処理
+    };
+  }, [resetStep]); 
 
   return (
     // Layout adjustments for full height usage
