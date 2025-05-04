@@ -646,32 +646,34 @@ export function PersonaSimulationPage() {
                 </div>
             )}
 
-            {/* Grid を ResizablePanelGroup に置換, flex-grow を追加 */}
+            {/* ResizablePanelGroup: border を削除 */}
             <ResizablePanelGroup 
               direction="horizontal"
-              className="w-full rounded-lg border flex-grow"
+              className="w-full rounded-lg flex-grow" // border を削除
             >
               <ResizablePanel defaultSize={50}>
-                <div className="flex h-full items-center justify-center p-0">
-                  <Step4_Results 
-                    results={resultSets[displayedResultSetIndex].personas} 
-                    onUpdatePersona={handleUpdatePersona} 
-                    selectedPersonaIds={selectedPersonaIds}
-                    onTogglePersonaSelection={handleTogglePersonaSelection}
-                  />
-                </div>
+                {/* Wrapper div を削除し、Step4_Results を直接配置。Panelにpadding追加。 */}
+                {/* <div className="flex h-full items-center justify-center p-0"> */} 
+                <Step4_Results 
+                  results={resultSets[displayedResultSetIndex].personas} 
+                  onUpdatePersona={handleUpdatePersona} 
+                  selectedPersonaIds={selectedPersonaIds}
+                  onTogglePersonaSelection={handleTogglePersonaSelection}
+                />
+                {/* </div> */}
               </ResizablePanel>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={50}>
+                 {/* Wrapper div を削除し、OrchestratorChat を直接配置。Panelにpadding追加。 */} 
                  {currentStep === 4 && (
-                    <div className="flex h-full items-center justify-center p-0">
+                    // <div className="flex h-full items-center justify-center p-0">
                       <OrchestratorChat 
                         chatHistory={chatHistory} 
                         onSendMessage={handleSendMessageToOrchestrator}
                         isPersonaMode={isPersonaChatMode}
                         onPersonaModeChange={handlePersonaChatModeChange}
                       />
-                    </div>
+                    // </div>
                   )}
               </ResizablePanel>
             </ResizablePanelGroup>
