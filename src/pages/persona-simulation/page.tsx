@@ -353,9 +353,11 @@ const ChatHistoryArea: React.FC<ChatHistoryAreaProps> = ({ chatHistory }) => {
   }, [chatHistory]);
 
   return (
-    <div className="h-80 md:h-96 flex-shrink-0 overflow-hidden bg-white">
+    // ★ Remove mask-image style and revert padding
+    <div className="h-80 md:h-96 flex-shrink-0 overflow-hidden bg-white relative">
       <ScrollArea className="h-full" ref={scrollAreaRef}>
-        <div className="space-y-5 px-6 py-5 max-w-4xl mx-auto">
+        {/* Revert padding-top */}
+        <div className="space-y-5 px-6 py-5 max-w-4xl mx-auto"> {/* Reverted py-5 */}
           {chatHistory.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`flex items-start gap-2.5 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -368,7 +370,7 @@ const ChatHistoryArea: React.FC<ChatHistoryAreaProps> = ({ chatHistory }) => {
                   {msg.role === 'user' && <User className="w-3.5 h-3.5" />}
                   {msg.role === 'system' && <Sparkles className="w-3.5 h-3.5" />}
                 </div>
-                <div className={`rounded-xl px-3.5 py-2.5 text-sm shadow-xs ${
+                <div className={`rounded-xl px-3.5 py-2.5 text-sm ${ 
                   msg.role === 'user'
                     ? 'bg-gray-900 text-white'
                     : msg.role === 'system'
@@ -1077,15 +1079,27 @@ const PersonaDetailView: React.FC<PersonaDetailViewProps> = ({ persona, onBackTo
   );
 };
 
-// ★ Humorous loading messages array
+// General loading messages
 const loadingMessages = [
-  "AIがペルソナを召喚中... ✨",
-  "シミュレーション回路を最適化しています... 🧠",
-  "思考の深淵を覗き込んでいます... 👀",
-  "デジタル人格に命を吹き込み中... 🌱",
-  "可能性の分岐点を計算しています... 🎲",
-  "ちょっとコーヒーブレイク... ☕ (AIもね)",
-  "未来予測を生成中... 🚀",
+  "ちょっと待ってね、AIが最高のアイデアを練ってるから！✨",
+  "ペルソナたちと作戦会議中... 秘密だけどね！🤫",
+  "思考回路をフル回転！煙が出ちゃうかも？煙",
+  "データの大海原を探索中... 面白いもの見つかるかな？🧭",
+  "創造力をブースト中！エネルギー充填120%！🚀",
+  "AIもおやつタイム♪ しばしお待ちを... 🍪",
+  "未来のユーザー像を想像中... ワクワクするね！💭",
+  "最適なペルソナを厳選しています... 少々お待ちください！👓",
+];
+
+// ★ Persona generation specific loading messages
+const generatingMessages = [
+  "ペルソナの魂を鋳造中... 🔥",
+  "個性と経験をブレンドしています... 🧪",
+  "AIが想像力を解き放ちます！💫",
+  "デジタル世界の新しい住人を生成中... 👤",
+  "ユニークな視点を構築しています... 🧩",
+  "創造の火花が散っています！✨",
+  "もうすぐ個性豊かなペルソナが完成します！⏳",
 ];
 
 const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
@@ -1113,7 +1127,6 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
 
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  // ★ State for the randomly selected loading message
   const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
 
   useEffect(() => {
@@ -1122,8 +1135,8 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
     }
     console.log(`[Debug] View changed to: ${currentView}, isLoading: ${isLoading}`);
 
+    // ★ Only apply transition effect for non-generating views
     if (currentView !== 'generating' && !isLoading) {
-        // ★ Select a random message on transition start
         const randomIndex = Math.floor(Math.random() * loadingMessages.length);
         setLoadingMessage(loadingMessages[randomIndex]);
         console.log("[Debug] Setting isTransitioning to true");
@@ -1134,8 +1147,9 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
             transitionTimeoutRef.current = null;
         }, 2000);
     } else {
-        console.log("[Debug] Not setting isTransitioning (already loading or generating)");
-        setIsTransitioning(false);
+        // Reset transition state if moving to generating or if loading
+        setIsTransitioning(false); 
+        console.log("[Debug] Not setting isTransitioning");
     }
 
     return () => {
@@ -1145,12 +1159,36 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
     };
   }, [currentView]);
 
+  // ★ Updated renderViewContent to handle generating state separately
   const renderViewContent = () => {
+    // If it's the generating view, show the special loading message
+    if (currentView === 'generating') {
+      const randomIndex = Math.floor(Math.random() * generatingMessages.length);
+      return (
+        <TextShimmerWave
+          className="text-xl font-semibold [--base-color:#6366F1] [--base-gradient-color:#A78BFA]" // Indigo/Purple theme
+        >
+          {generatingMessages[randomIndex]}
+        </TextShimmerWave>
+      );
+    }
+
+    // If transitioning between other views, show the general loading message
+    if (isTransitioning) {
+        return (
+            <TextShimmerWave
+                className="text-xl font-semibold [--base-color:#0D74CE] [--base-gradient-color:#5EB1EF]" // Blue theme
+            >
+                {loadingMessage}
+            </TextShimmerWave>
+        );
+    }
+
+    // Otherwise, render the actual view content
     switch (currentView) {
       case 'initial': return <WelcomeView />;
       case 'request_input': return <RequestInputView onSubmit={onSubmitRequest} />;
       case 'confirmation': return userRequestForConfirmation && aiSuggestion ? <ConfirmationView userRequest={userRequestForConfirmation} suggestion={aiSuggestion} onSettingsChange={onSettingsChange} /> : null;
-      case 'generating': return aiSuggestion ? <GeneratingView count={aiSuggestion.selectedPersonaCount} level={aiSuggestion.detailLevel} /> : null;
       case 'results_dashboard': return <ResultsDashboardView personas={personas} onViewPersonaList={onViewPersonaList} />;
       case 'analysis_result': return analysisType ? <AnalysisResultView analysisType={analysisType} personas={personas} onViewPersonaList={onViewPersonaList} /> : null;
       case 'persona_list': return <PersonaListView personas={personas} onSelectPersona={onSelectPersona} onBackToDashboard={onBackToDashboard}/>;
@@ -1164,7 +1202,7 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
     <div className="flex-grow overflow-hidden bg-white relative">
       <AnimatePresence mode="wait">
         <motion.div
-          key={currentView + (currentView === 'analysis_result' ? analysisType : '') + (currentView === 'persona_detail' ? selectedPersonaId : '')}
+          key={currentView + (currentView === 'analysis_result' ? analysisType : '') + (currentView === 'persona_detail' ? selectedPersonaId : '')} 
           variants={variants}
           initial="hidden"
           animate="visible"
@@ -1172,16 +1210,8 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
           transition={{ duration: 0.35, ease: "easeInOut" }}
           className="absolute inset-0 overflow-auto flex items-center justify-center"
         >
-          {isTransitioning ? (
-            <TextShimmerWave
-              className="text-xl font-semibold [--base-color:#0D74CE] [--base-gradient-color:#5EB1EF]"
-            >
-              {/* ★ Display the random loading message */}
-              {loadingMessage}
-            </TextShimmerWave>
-          ) : (
-            renderViewContent()
-          )}
+          {/* ★ Render logic moved to renderViewContent */}
+          {renderViewContent()}
         </motion.div>
       </AnimatePresence>
     </div>
