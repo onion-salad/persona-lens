@@ -108,20 +108,174 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
     });
     const [currentMode, setCurrentMode] = useState<'normal' | 'persona_question'>('normal');
 
+    // ★ Vanishing Animation State and Refs
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const newDataRef = useRef<any[]>([]);
+    const [animating, setAnimating] = useState(false);
+
+    // ★ Draw function adapted for Textarea
+    const draw = useCallback(() => {
+        console.log("[Debug] draw called");
+        if (!textareaRef.current) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) return;
+
+        console.log("[Debug] draw: Context obtained");
+        canvas.width = 800;
+        canvas.height = 800;
+        ctx.clearRect(0, 0, 800, 800);
+        const computedStyles = getComputedStyle(textareaRef.current);
+        const fontSize = parseFloat(computedStyles.getPropertyValue("font-size"));
+        const fontFamily = computedStyles.getPropertyValue("font-family");
+        const lineHeight = parseFloat(computedStyles.getPropertyValue("line-height")) || fontSize * 1.2;
+        const paddingTop = parseFloat(computedStyles.getPropertyValue("padding-top"));
+        const paddingLeft = parseFloat(computedStyles.getPropertyValue("padding-left"));
+
+        ctx.font = `${fontSize * 2}px ${fontFamily}`;
+        ctx.fillStyle = "#000000";
+
+        const textLines = value.split('\n');
+        console.log(`[Debug] draw: Drawing ${textLines.length} lines`);
+        textLines.forEach((line, index) => {
+            ctx.fillText(line, paddingLeft * 2, paddingTop * 2 + index * lineHeight * 2);
+        });
+
+        const imageData = ctx.getImageData(0, 0, 800, 800);
+        const pixelData = imageData.data;
+        const newData: any[] = [];
+
+        for (let t = 0; t < 800; t++) {
+            let i = 4 * t * 800;
+            for (let n = 0; n < 800; n++) {
+                let e = i + 4 * n;
+                if (pixelData[e + 3] > 0) {
+                    newData.push({
+                        x: n,
+                        y: t,
+                        color: [0, 0, 0, pixelData[e + 3]],
+                    });
+                }
+            }
+        }
+        console.log(`[Debug] draw: Found ${newData.length} pixels`);
+
+        newDataRef.current = newData.map(({ x, y, color }) => ({
+            x,
+            y,
+            r: 1,
+            color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] / 255})`,
+        }));
+    }, [value, textareaRef]);
+
+    useEffect(() => {
+        if (animating) {
+            console.log("[Debug] useEffect[animating]: calling draw()");
+            draw();
+        }
+    }, [value, draw, animating]);
+
+    // ★ Animate function (mostly unchanged)
+    const animate = (start: number) => {
+        console.log(`[Debug] animate called with start: ${start}`);
+        let frameCount = 0;
+        const animateFrame = (pos: number = 0) => {
+            frameCount++;
+            const rafId = requestAnimationFrame(() => {
+                const newArr = [];
+                for (let i = 0; i < newDataRef.current.length; i++) {
+                    const current = newDataRef.current[i];
+                    if (current.x < pos) {
+                        newArr.push(current);
+                    } else {
+                        if (current.r <= 0) {
+                            current.r = 0;
+                            continue;
+                        }
+                        current.x += Math.random() > 0.5 ? 1 : -1;
+                        current.y += Math.random() > 0.5 ? 1 : -1;
+                        current.r -= 0.05 * Math.random();
+                        newArr.push(current);
+                    }
+                }
+                newDataRef.current = newArr;
+                const ctx = canvasRef.current?.getContext("2d");
+                if (ctx) {
+                    ctx.clearRect(pos, 0, 800, 800);
+                    newDataRef.current.forEach((t) => {
+                        const { x: n, y: i, r: s, color: color } = t;
+                        if (n > pos) {
+                            ctx.beginPath();
+                            ctx.rect(n, i, s, s);
+                            ctx.fillStyle = color;
+                            ctx.strokeStyle = color;
+                            ctx.stroke();
+                        }
+                    });
+                }
+                if (newDataRef.current.length > 0) {
+                     if (frameCount > 500) {
+                         console.warn("[Debug] animate: Animation forced stop after 500 frames");
+                         cancelAnimationFrame(rafId);
+                         setValue("");
+                         adjustHeight(true);
+                         setAnimating(false);
+                         return;
+                     }
+                    animateFrame(pos - 8);
+                } else {
+                    console.log(`[Debug] animate: Animation finished after ${frameCount} frames`);
+                    setValue("");
+                    adjustHeight(true);
+                    setAnimating(false);
+                }
+            });
+        };
+        animateFrame(start);
+    };
+
+    // ★ Vanish and Submit logic
+    const vanishAndSubmit = () => {
+        console.log("[Debug] vanishAndSubmit called");
+        if (isLoading || animating) return;
+        const currentValue = value;
+        if (!currentValue.trim()) return;
+
+        console.log("[Debug] vanishAndSubmit: Setting animating=true");
+        setAnimating(true);
+        onSendMessage(currentValue, currentMode);
+        setTimeout(() => {
+             console.log("[Debug] vanishAndSubmit: setTimeout calling draw()");
+             draw();
+             if (textareaRef.current) {
+                 const maxX = newDataRef.current.reduce(
+                     (prev, current) => (current.x > prev ? current.x : prev),
+                     0
+                 );
+                 console.log(`[Debug] vanishAndSubmit: Calculated maxX = ${maxX}`);
+                 if (maxX > 0) {
+                    animate(maxX);
+                 } else {
+                    console.warn("[Debug] vanishAndSubmit: No pixels found (maxX=0), resetting animation state.");
+                    setValue("");
+                    adjustHeight(true);
+                    setAnimating(false);
+                 }
+             }
+        }, 50);
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === "Enter" && !e.shiftKey && value.trim() && !isLoading) {
+        if (e.key === "Enter" && !e.shiftKey && value.trim() && !isLoading && !animating) {
             e.preventDefault();
-            onSendMessage(value, currentMode);
-            setValue("");
-            adjustHeight(true);
+            vanishAndSubmit();
         }
     };
 
     const handleSendClick = () => {
-        if (!value.trim() || isLoading) return;
-        onSendMessage(value, currentMode);
-        setValue("");
-        adjustHeight(true);
+        if (!value.trim() || isLoading || animating) return;
+        vanishAndSubmit();
     };
 
     const placeholderText = currentMode === 'normal'
@@ -133,6 +287,14 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
             <div className="bg-white dark:bg-neutral-900 rounded-2xl p-1.5 max-w-3xl mx-auto border border-gray-200 dark:border-neutral-800">
                 <div className="relative">
                     <div className="relative flex flex-col">
+                        <canvas
+                            ref={canvasRef}
+                            className={cn(
+                                "absolute pointer-events-none top-0 left-0",
+                                "text-base transform scale-50 origin-top-left",
+                                animating ? "opacity-100" : "opacity-0"
+                            )}
+                        />
                         <div className="overflow-y-auto">
                             <Textarea
                                 id="ai-prompt-input"
@@ -140,18 +302,20 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
                                 placeholder={placeholderText}
                                 className={cn(
                                     "w-full rounded-xl rounded-b-none px-4 py-3 bg-white dark:bg-neutral-800/50 border-none text-black dark:text-white placeholder:text-black/70 dark:placeholder:text-white/70 resize-none focus-visible:ring-0 focus-visible:ring-offset-0",
-                                    "min-h-[72px]"
+                                    "min-h-[72px]",
+                                    animating && "text-transparent dark:text-transparent"
                                 )}
                                 ref={textareaRef}
                                 onKeyDown={handleKeyDown}
-                                disabled={isLoading}
+                                disabled={isLoading || animating}
                                 onChange={(e) => {
-                                    setValue(e.target.value);
-                                    adjustHeight();
+                                    if (!animating) {
+                                      setValue(e.target.value);
+                                      adjustHeight();
+                                    }
                                 }}
                             />
                         </div>
-
                         <div className="h-14 bg-white dark:bg-neutral-900 rounded-b-xl flex items-center border-t border-gray-100 dark:border-neutral-800">
                             <div className="absolute left-3 right-3 bottom-3 flex items-center justify-between w-[calc(100%-24px)]">
                                 <div className="flex items-center gap-2">
@@ -160,7 +324,7 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
                                             <Button
                                                 variant="ghost"
                                                 className="flex items-center gap-1 h-8 pl-1 pr-2 text-xs rounded-md text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-neutral-700 dark:hover:text-white focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-blue-500"
-                                                disabled={isLoading}
+                                                disabled={isLoading || animating}
                                             >
                                                 <AnimatePresence mode="wait">
                                                     <motion.div
@@ -207,19 +371,19 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
                                             "rounded-lg p-2 bg-black/5 dark:bg-white/5 cursor-pointer",
                                             "hover:bg-black/10 dark:hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-blue-500",
                                             "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white",
-                                            isLoading && "opacity-50 cursor-not-allowed"
+                                            (isLoading || animating) && "opacity-50 cursor-not-allowed"
                                         )}
                                         aria-label="Attach file"
-                                        aria-disabled={isLoading}
+                                        aria-disabled={isLoading || animating}
                                     >
-                                        <input type="file" className="hidden" disabled={isLoading} />
+                                        <input type="file" className="hidden" disabled={isLoading || animating} />
                                         <Paperclip className="w-4 h-4 transition-colors" />
                                     </label>
                                 </div>
                                 <Button
                                     type="button"
                                     aria-label="Send message"
-                                    disabled={!value.trim() || isLoading}
+                                    disabled={!value.trim() || isLoading || animating}
                                     size="icon"
                                     className={cn(
                                         "w-10 h-10 bg-gray-800 hover:bg-gray-700 text-white rounded-full disabled:opacity-50 transition-all",
@@ -230,7 +394,7 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
                                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin"/> : <ArrowRight
                                         className={cn(
                                             "w-4 h-4 transition-opacity duration-200",
-                                            value.trim() && !isLoading
+                                            value.trim() && !isLoading && !animating
                                                 ? "opacity-100"
                                                 : "opacity-30"
                                         )}
