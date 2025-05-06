@@ -100,7 +100,6 @@ export function HomePage() {
 
           {/* 通知リスト */}
           <div className="mt-0 overflow-hidden">
-             <h2 className="text-2xl font-semibold text-center mb-6 text-gray-800">ペルソナ生成履歴</h2>
             <NotificationList />
           </div>
         </div>
