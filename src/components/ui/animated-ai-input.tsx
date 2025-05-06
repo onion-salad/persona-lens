@@ -195,7 +195,7 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
                         }
                         current.x += Math.random() > 0.5 ? 1 : -1;
                         current.y += Math.random() > 0.5 ? 1 : -1;
-                        current.r -= 0.05 * Math.random();
+                        current.r -= 0.02 * Math.random();
                         newArr.push(current);
                     }
                 }
@@ -215,8 +215,8 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
                     });
                 }
                 if (newDataRef.current.length > 0) {
-                     if (frameCount > 500) {
-                         console.warn("[Debug] animate: Animation forced stop after 500 frames");
+                     if (frameCount > 1000) {
+                         console.warn("[Debug] animate: Animation forced stop after 1000 frames");
                          cancelAnimationFrame(rafId);
                          setValue("");
                          adjustHeight(true);
