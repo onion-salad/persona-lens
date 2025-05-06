@@ -353,11 +353,17 @@ const ChatHistoryArea: React.FC<ChatHistoryAreaProps> = ({ chatHistory }) => {
   }, [chatHistory]);
 
   return (
-    // ★ Remove mask-image style and revert padding
-    <div className="h-80 md:h-96 flex-shrink-0 overflow-hidden bg-white relative">
+    // ★ Re-add mask-image for top fade
+    <div 
+      className="h-80 md:h-96 flex-shrink-0 overflow-hidden bg-white relative"
+      style={{
+        maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%)', // Fade in top
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%)',
+      }}
+    >
       <ScrollArea className="h-full" ref={scrollAreaRef}>
-        {/* Revert padding-top */}
-        <div className="space-y-5 px-6 py-5 max-w-4xl mx-auto"> {/* Reverted py-5 */}
+        {/* ★ Add padding top for the mask */}
+        <div className="space-y-5 px-6 pb-5 pt-12 max-w-4xl mx-auto"> {/* Added pt-12 */}
           {chatHistory.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`flex items-start gap-2.5 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -1161,26 +1167,30 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
 
   // ★ Updated renderViewContent to handle generating state separately
   const renderViewContent = () => {
-    // If it's the generating view, show the special loading message
     if (currentView === 'generating') {
       const randomIndex = Math.floor(Math.random() * generatingMessages.length);
       return (
-        <TextShimmerWave
-          className="text-xl font-semibold [--base-color:#6366F1] [--base-gradient-color:#A78BFA]" // Indigo/Purple theme
-        >
-          {generatingMessages[randomIndex]}
-        </TextShimmerWave>
+        // ★ Wrap Generating TextShimmerWave in a centering div
+        <div className="absolute inset-0 flex items-center justify-center">
+            <TextShimmerWave
+              className="text-xl font-semibold [--base-color:#6366F1] [--base-gradient-color:#A78BFA]"
+            >
+              {generatingMessages[randomIndex]}
+            </TextShimmerWave>
+        </div>
       );
     }
 
-    // If transitioning between other views, show the general loading message
     if (isTransitioning) {
         return (
-            <TextShimmerWave
-                className="text-xl font-semibold [--base-color:#0D74CE] [--base-gradient-color:#5EB1EF]" // Blue theme
-            >
-                {loadingMessage}
-            </TextShimmerWave>
+           // ★ Wrap Transition TextShimmerWave in a centering div
+           <div className="absolute inset-0 flex items-center justify-center">
+              <TextShimmerWave
+                  className="text-xl font-semibold [--base-color:#0D74CE] [--base-gradient-color:#5EB1EF]"
+              >
+                  {loadingMessage}
+              </TextShimmerWave>
+            </div>
         );
     }
 
@@ -1199,21 +1209,31 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
   };
 
   return (
-    <div className="flex-grow overflow-hidden bg-white relative">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentView + (currentView === 'analysis_result' ? analysisType : '') + (currentView === 'persona_detail' ? selectedPersonaId : '')} 
-          variants={variants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          transition={{ duration: 0.35, ease: "easeInOut" }}
-          className="absolute inset-0 overflow-auto flex items-center justify-center"
-        >
-          {/* ★ Render logic moved to renderViewContent */}
-          {renderViewContent()}
-        </motion.div>
-      </AnimatePresence>
+    // ★ Add relative positioning and mask for bottom fade
+    <div 
+      className="flex-grow overflow-hidden bg-white relative" 
+      style={{
+        maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)', // Fade out bottom
+        WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
+      }}
+    >
+      {/* Add padding bottom to prevent content from being cut off by the mask */}
+      <div className="absolute inset-0 overflow-auto pb-10"> {/* Added pb-10 */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentView + (currentView === 'analysis_result' ? analysisType : '') + (currentView === 'persona_detail' ? selectedPersonaId : '')} 
+            variants={variants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+            // ★ Remove flex centering, content should align normally
+            className="h-full" // Ensure motion div takes full height for padding
+          >
+            {renderViewContent()}
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
