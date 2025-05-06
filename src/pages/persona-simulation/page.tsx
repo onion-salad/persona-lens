@@ -53,6 +53,8 @@ import { Progress } from "@/components/ui/progress";
 import { AI_Prompt } from '@/components/ui/animated-ai-input'; // ★ Import AI_Prompt
 import { MenuItem, MenuContainer } from "@/components/ui/fluid-menu"; // ★ Import fluid-menu
 import { useNavigate } from 'react-router-dom'; // ★ Import useNavigate
+import { TextShimmerWave } from "@/components/ui/text-shimmer-wave"; // ★ Import TextShimmerWave
+import { cn } from "@/lib/utils"; // Import cn for conditional classes
 
 // 仮の型定義
 type AIPersona = {
@@ -351,10 +353,9 @@ const ChatHistoryArea: React.FC<ChatHistoryAreaProps> = ({ chatHistory }) => {
   }, [chatHistory]);
 
   return (
-    // ★ Change background to white
-    <div className="h-80 md:h-96 flex-shrink-0 overflow-hidden border-t border-gray-100 bg-white">
+    <div className="h-80 md:h-96 flex-shrink-0 overflow-hidden bg-white">
       <ScrollArea className="h-full" ref={scrollAreaRef}>
-        <div className="space-y-5 px-6 py-5 max-w-4xl mx-auto"> 
+        <div className="space-y-5 px-6 py-5 max-w-4xl mx-auto">
           {chatHistory.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`flex items-start gap-2.5 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -381,9 +382,14 @@ const ChatHistoryArea: React.FC<ChatHistoryAreaProps> = ({ chatHistory }) => {
                         <Button
                           key={action.id}
                           size="sm"
+                          // ★ Adjust button styles for default text visibility
                           variant={msg.role === 'system' ? "secondary" : "outline"}
                           onClick={() => action.onClick(msg.actionPayload)}
-                          className="px-3 py-1 text-xs"
+                          className={cn(
+                              "px-3 py-1 text-xs",
+                              // Ensure default text color is visible
+                              msg.role === 'system' ? "text-secondary-foreground hover:bg-secondary/90" : "text-foreground hover:bg-accent hover:text-accent-foreground"
+                          )}
                         >
                           {action.label}
                         </Button>
@@ -408,17 +414,18 @@ const ChatHistoryArea: React.FC<ChatHistoryAreaProps> = ({ chatHistory }) => {
 // 3. Dynamic Content Area (Top Flexible)
 interface DynamicContentAreaProps {
   currentView: SimulationView;
+  isLoading: boolean; // Added isLoading to show loading indicator
   onSubmitRequest: (request: string) => void;
-  personas: AIPersona[]; // Added personas prop for dashboard
-  userRequestForConfirmation: string | null; // Pass the request for confirmation view
-  aiSuggestion: AISuggestion | null; // Added suggestion prop
-  onSettingsChange: (newSettings: { count: number; level: DetailLevel }) => void; // Added callback
-  analysisType: string | null; // For analysis view
-  selectedPersonaId: string | null; // Added
-  onSelectPersona: (id: string) => void; // Added
-  onBackToList: () => void; // Added
-  onBackToDashboard: () => void; // Added
-  onViewPersonaList: () => void; // Added
+  personas: AIPersona[];
+  userRequestForConfirmation: string | null;
+  aiSuggestion: AISuggestion | null;
+  onSettingsChange: (newSettings: { count: number; level: DetailLevel }) => void;
+  analysisType: string | null;
+  selectedPersonaId: string | null;
+  onSelectPersona: (id: string) => void;
+  onBackToList: () => void;
+  onBackToDashboard: () => void;
+  onViewPersonaList: () => void;
 }
 
 // --- View Specific Components --- 
@@ -497,17 +504,15 @@ const ConfirmationView: React.FC<{ userRequest: string; suggestion: AISuggestion
       <Bot className="w-10 h-10 text-gray-500 mb-4" />
       <h2 className="text-lg font-semibold text-gray-800 mb-2">生成内容の提案・確認</h2>
       <p className="text-gray-600 max-w-lg mb-4">AIが以下の内容でペルソナ生成を提案しています...</p>
-      <blockquote className="w-full bg-gray-50 p-3 rounded-md border border-gray-200 text-sm text-left mb-6">リクエスト: "{userRequest}"</blockquote>
-       <div className="w-full bg-gray-50 p-5 rounded-md border border-gray-200 space-y-5 mb-6 text-left"> {/* Adjusted padding */}
-
-         {/* --- New Persona Count Slider --- */}
-         <div className="space-y-2.5"> {/* Adjusted spacing */}
-           <Label className="font-medium text-foreground">必要なペルソナ: <span className="font-semibold tabular-nums">{displayCount}人</span></Label>
-           <div className="flex items-center gap-3"> {/* Adjusted gap */}
+      <blockquote className="w-full bg-gray-50 p-3 rounded-md border border-gray-200 text-sm text-left mb-6 text-gray-700">リクエスト: "{userRequest}"</blockquote>
+       <div className="w-full bg-gray-50 p-5 rounded-md border border-gray-200 space-y-5 mb-6 text-left"> 
+         <div className="space-y-2.5">
+           <Label className="font-medium text-gray-700">必要なペルソナ: <span className="font-semibold tabular-nums text-gray-900">{displayCount}人</span></Label>
+           <div className="flex items-center gap-3"> 
              <Button
                variant="outline"
                size="icon"
-               className="size-7" // Slightly smaller buttons
+               className="size-7"
                aria-label="ペルソナ数を減らす"
                onClick={decreaseValue}
                disabled={displayCount === minValue}
@@ -517,18 +522,18 @@ const ConfirmationView: React.FC<{ userRequest: string; suggestion: AISuggestion
              <Slider
                className="grow"
                value={[displayCount]}
-               onValueChange={handleSliderChange} // Use wrapper function if needed, direct set state is fine here
+               onValueChange={handleSliderChange}
                min={minValue}
                max={maxValue}
                step={steps}
-               showTooltip={true} // Enable tooltip
-               tooltipContent={(value) => `${value}人`} // Customize tooltip content
+               showTooltip={true}
+               tooltipContent={(value) => `${value}人`}
                aria-label="ペルソナ数スライダー"
              />
               <Button
                variant="outline"
                size="icon"
-               className="size-7" // Slightly smaller buttons
+               className="size-7"
                aria-label="ペルソナ数を増やす"
                onClick={increaseValue}
                disabled={displayCount === maxValue}
@@ -541,9 +546,8 @@ const ConfirmationView: React.FC<{ userRequest: string; suggestion: AISuggestion
              </div>
          </div>
 
-         {/* --- Detail Level Radio Group (Unchanged) --- */}
          <div className="space-y-2">
-           <Label className="font-medium">詳細度:</Label>
+           <Label className="font-medium text-gray-700">詳細度:</Label>
            <RadioGroup 
               value={displayDetailLevel}
               onValueChange={(value: string) => setDisplayDetailLevel(value as DetailLevel)}
@@ -554,11 +558,11 @@ const ConfirmationView: React.FC<{ userRequest: string; suggestion: AISuggestion
                   <RadioGroupItem 
                     value={level} 
                     id={`detail-${level}`} 
-                    className="border-gray-400 text-gray-900"
+                    className="border-gray-400 text-gray-900" // Radio itself is styled
                   />
                   <Label 
                     htmlFor={`detail-${level}`} 
-                    className="text-sm font-normal text-gray-700 cursor-pointer"
+                    className="text-sm font-normal text-gray-700 cursor-pointer" // Label for radio item is styled
                   >
                     {detailLevelLabels[level]}
                   </Label>
@@ -567,14 +571,11 @@ const ConfirmationView: React.FC<{ userRequest: string; suggestion: AISuggestion
             </RadioGroup>
          </div>
 
-         {/* --- Attributes Display (Unchanged) --- */}
          <div className="flex items-start text-sm pt-2">
             <Label className="font-medium min-w-[70px] text-gray-700">推奨属性:</Label>
             <span className="ml-2 text-gray-800">{suggestion.attributes}</span>
          </div>
        </div>
-       {/* Inform user about action buttons */}
-       <p className="text-sm text-gray-500">設定を調整後、下のボタンで指示してください。</p>
     </div>
   );
 };
@@ -1076,8 +1077,20 @@ const PersonaDetailView: React.FC<PersonaDetailViewProps> = ({ persona, onBackTo
   );
 };
 
+// ★ Humorous loading messages array
+const loadingMessages = [
+  "AIがペルソナを召喚中... ✨",
+  "シミュレーション回路を最適化しています... 🧠",
+  "思考の深淵を覗き込んでいます... 👀",
+  "デジタル人格に命を吹き込み中... 🌱",
+  "可能性の分岐点を計算しています... 🎲",
+  "ちょっとコーヒーブレイク... ☕ (AIもね)",
+  "未来予測を生成中... 🚀",
+];
+
 const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
   currentView,
+  isLoading,
   onSubmitRequest,
   personas,
   userRequestForConfirmation,
@@ -1091,15 +1104,64 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
   onViewPersonaList
 }) => {
   const variants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -10 },
+    hidden: { opacity: 0, y: 10, scale: 0.98 },
+    visible: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: -10, scale: 0.98 },
   };
 
   const selectedPersona = personas.find(p => p.id === selectedPersonaId);
 
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // ★ State for the randomly selected loading message
+  const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
+
+  useEffect(() => {
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current);
+    }
+    console.log(`[Debug] View changed to: ${currentView}, isLoading: ${isLoading}`);
+
+    if (currentView !== 'generating' && !isLoading) {
+        // ★ Select a random message on transition start
+        const randomIndex = Math.floor(Math.random() * loadingMessages.length);
+        setLoadingMessage(loadingMessages[randomIndex]);
+        console.log("[Debug] Setting isTransitioning to true");
+        setIsTransitioning(true);
+        transitionTimeoutRef.current = setTimeout(() => {
+            console.log("[Debug] Setting isTransitioning to false");
+            setIsTransitioning(false);
+            transitionTimeoutRef.current = null;
+        }, 2000);
+    } else {
+        console.log("[Debug] Not setting isTransitioning (already loading or generating)");
+        setIsTransitioning(false);
+    }
+
+    return () => {
+        if (transitionTimeoutRef.current) {
+            clearTimeout(transitionTimeoutRef.current);
+        }
+    };
+  }, [currentView]);
+
+  const renderViewContent = () => {
+    switch (currentView) {
+      case 'initial': return <WelcomeView />;
+      case 'request_input': return <RequestInputView onSubmit={onSubmitRequest} />;
+      case 'confirmation': return userRequestForConfirmation && aiSuggestion ? <ConfirmationView userRequest={userRequestForConfirmation} suggestion={aiSuggestion} onSettingsChange={onSettingsChange} /> : null;
+      case 'generating': return aiSuggestion ? <GeneratingView count={aiSuggestion.selectedPersonaCount} level={aiSuggestion.detailLevel} /> : null;
+      case 'results_dashboard': return <ResultsDashboardView personas={personas} onViewPersonaList={onViewPersonaList} />;
+      case 'analysis_result': return analysisType ? <AnalysisResultView analysisType={analysisType} personas={personas} onViewPersonaList={onViewPersonaList} /> : null;
+      case 'persona_list': return <PersonaListView personas={personas} onSelectPersona={onSelectPersona} onBackToDashboard={onBackToDashboard}/>;
+      case 'persona_detail': return <PersonaDetailView persona={selectedPersona ?? null} onBackToList={onBackToList} />;
+      case 'error': return <ErrorView />;
+      default: return null;
+    }
+  };
+
   return (
-    <div className="flex-grow overflow-hidden bg-white relative"> 
+    <div className="flex-grow overflow-hidden bg-white relative">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentView + (currentView === 'analysis_result' ? analysisType : '') + (currentView === 'persona_detail' ? selectedPersonaId : '')}
@@ -1107,28 +1169,19 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
           initial="hidden"
           animate="visible"
           exit="exit"
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="absolute inset-0 overflow-auto" 
+          transition={{ duration: 0.35, ease: "easeInOut" }}
+          className="absolute inset-0 overflow-auto flex items-center justify-center"
         >
-          {currentView === 'initial' && <WelcomeView />} 
-          {currentView === 'request_input' && <RequestInputView onSubmit={onSubmitRequest} />} 
-          {currentView === 'confirmation' && userRequestForConfirmation && aiSuggestion && (
-             <ConfirmationView userRequest={userRequestForConfirmation} suggestion={aiSuggestion} onSettingsChange={onSettingsChange} />
-          )} 
-          {currentView === 'generating' && aiSuggestion && (
-             <GeneratingView count={aiSuggestion.selectedPersonaCount} level={aiSuggestion.detailLevel} />
-          )} 
-          {currentView === 'results_dashboard' && <ResultsDashboardView personas={personas} onViewPersonaList={onViewPersonaList} />} 
-          {currentView === 'analysis_result' && analysisType && (
-             <AnalysisResultView analysisType={analysisType} personas={personas} onViewPersonaList={onViewPersonaList} />
-          )} 
-          {currentView === 'persona_list' && (
-             <PersonaListView personas={personas} onSelectPersona={onSelectPersona} onBackToDashboard={onBackToDashboard}/>
+          {isTransitioning ? (
+            <TextShimmerWave
+              className="text-xl font-semibold [--base-color:#0D74CE] [--base-gradient-color:#5EB1EF]"
+            >
+              {/* ★ Display the random loading message */}
+              {loadingMessage}
+            </TextShimmerWave>
+          ) : (
+            renderViewContent()
           )}
-          {currentView === 'persona_detail' && (
-            <PersonaDetailView persona={selectedPersona ?? null} onBackToList={onBackToList} />
-          )}
-          {currentView === 'error' && <ErrorView />} 
         </motion.div>
       </AnimatePresence>
     </div>
@@ -1577,12 +1630,13 @@ export function PersonaSimulationPage() {
     <div className="flex flex-col h-screen bg-gray-100 overflow-hidden relative"> {/* ★ Added relative positioning */}
       <DynamicContentArea
         currentView={currentView}
-        onSubmitRequest={handleSubmitInitialRequest} // This is for the initial input view if used
+        isLoading={isLoading}
+        onSubmitRequest={handleSubmitInitialRequest}
         personas={resultSets[displayedResultSetIndex]?.personas ?? []}
         userRequestForConfirmation={currentRequest}
-        aiSuggestion={aiSuggestion} 
-        onSettingsChange={handleSettingsChange} 
-        analysisType={currentAnalysisType} 
+        aiSuggestion={aiSuggestion}
+        onSettingsChange={handleSettingsChange}
+        analysisType={currentAnalysisType}
         selectedPersonaId={selectedPersonaId}
         onSelectPersona={handleSelectPersona}
         onBackToList={handleBackToList}

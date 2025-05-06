@@ -283,7 +283,7 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
         : "ペルソナへの質問を入力...";
 
     return (
-        <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
+        <div className="flex-shrink-0 bg-white p-4">
             <div className="bg-white dark:bg-neutral-900 rounded-2xl p-1.5 max-w-3xl mx-auto border border-gray-200 dark:border-neutral-800">
                 <div className="relative">
                     <div className="relative flex flex-col">
@@ -316,7 +316,7 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
                                 }}
                             />
                         </div>
-                        <div className="h-14 bg-white dark:bg-neutral-900 rounded-b-xl flex items-center border-t border-gray-100 dark:border-neutral-800">
+                        <div className="h-14 bg-white dark:bg-neutral-900 rounded-b-xl flex items-center">
                             <div className="absolute left-3 right-3 bottom-3 flex items-center justify-between w-[calc(100%-24px)]">
                                 <div className="flex items-center gap-2">
                                     <DropdownMenu>
