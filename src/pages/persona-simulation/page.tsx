@@ -35,6 +35,11 @@ import {
   Meh,
   List,
   Users,
+  Minus,
+  Plus,
+  Menu as MenuIcon,
+  X,
+  Home,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
@@ -45,6 +50,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Progress } from "@/components/ui/progress";
+import { AI_Prompt } from '@/components/ui/animated-ai-input'; // ★ Import AI_Prompt
+import { MenuItem, MenuContainer } from "@/components/ui/fluid-menu"; // ★ Import fluid-menu
+import { useNavigate } from 'react-router-dom'; // ★ Import useNavigate
 
 // 仮の型定義
 type AIPersona = {
@@ -343,10 +351,10 @@ const ChatHistoryArea: React.FC<ChatHistoryAreaProps> = ({ chatHistory }) => {
   }, [chatHistory]);
 
   return (
-    // Adjusted height to be more flexible
-    <div className="h-80 md:h-96 flex-shrink-0 overflow-hidden border-t border-gray-100 bg-gray-50/50">
+    // ★ Change background to white
+    <div className="h-80 md:h-96 flex-shrink-0 overflow-hidden border-t border-gray-100 bg-white">
       <ScrollArea className="h-full" ref={scrollAreaRef}>
-        <div className="space-y-5 px-6 py-5 max-w-4xl mx-auto"> {/* Added max-width */} 
+        <div className="space-y-5 px-6 py-5 max-w-4xl mx-auto"> 
           {chatHistory.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`flex items-start gap-2.5 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -469,7 +477,20 @@ const DashboardView: React.FC = () => (
 const ConfirmationView: React.FC<{ userRequest: string; suggestion: AISuggestion; onSettingsChange: (newSettings: { count: number; level: DetailLevel }) => void }> = ({ userRequest, suggestion, onSettingsChange }) => {
   const [displayCount, setDisplayCount] = useState(suggestion.selectedPersonaCount);
   const [displayDetailLevel, setDisplayDetailLevel] = useState<DetailLevel>(suggestion.detailLevel);
+
+  // Slider settings
+  const minValue = 1;
+  const maxValue = 50;
+  const steps = 1; // Step is 1 for persona count
+
   useEffect(() => { onSettingsChange({ count: displayCount, level: displayDetailLevel }); }, [displayCount, displayDetailLevel, onSettingsChange]);
+
+  const handleSliderChange = (value: number[]) => {
+      setDisplayCount(value[0]);
+  };
+
+  const decreaseValue = () => setDisplayCount((prev) => Math.max(minValue, prev - steps));
+  const increaseValue = () => setDisplayCount((prev) => Math.min(maxValue, prev + steps));
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-6 md:p-8 text-center max-w-3xl mx-auto">
@@ -477,54 +498,83 @@ const ConfirmationView: React.FC<{ userRequest: string; suggestion: AISuggestion
       <h2 className="text-lg font-semibold text-gray-800 mb-2">生成内容の提案・確認</h2>
       <p className="text-gray-600 max-w-lg mb-4">AIが以下の内容でペルソナ生成を提案しています...</p>
       <blockquote className="w-full bg-gray-50 p-3 rounded-md border border-gray-200 text-sm text-left mb-6">リクエスト: "{userRequest}"</blockquote>
-       <div className="w-full bg-gray-50 p-4 rounded-md border border-gray-200 space-y-4 mb-6 text-left">
-         <div className="space-y-2">
-           <div className="flex justify-between items-center">
-             <Label className="font-medium">必要なペルソナ:</Label>
-             <span className="font-semibold text-gray-900 bg-gray-100 px-2 py-1 rounded text-xs">{displayCount}人</span>
+       <div className="w-full bg-gray-50 p-5 rounded-md border border-gray-200 space-y-5 mb-6 text-left"> {/* Adjusted padding */}
+
+         {/* --- New Persona Count Slider --- */}
+         <div className="space-y-2.5"> {/* Adjusted spacing */}
+           <Label className="font-medium text-foreground">必要なペルソナ: <span className="font-semibold tabular-nums">{displayCount}人</span></Label>
+           <div className="flex items-center gap-3"> {/* Adjusted gap */}
+             <Button
+               variant="outline"
+               size="icon"
+               className="size-7" // Slightly smaller buttons
+               aria-label="ペルソナ数を減らす"
+               onClick={decreaseValue}
+               disabled={displayCount === minValue}
+             >
+               <Minus size={14} strokeWidth={2.5} aria-hidden="true" />
+             </Button>
+             <Slider
+               className="grow"
+               value={[displayCount]}
+               onValueChange={handleSliderChange} // Use wrapper function if needed, direct set state is fine here
+               min={minValue}
+               max={maxValue}
+               step={steps}
+               showTooltip={true} // Enable tooltip
+               tooltipContent={(value) => `${value}人`} // Customize tooltip content
+               aria-label="ペルソナ数スライダー"
+             />
+              <Button
+               variant="outline"
+               size="icon"
+               className="size-7" // Slightly smaller buttons
+               aria-label="ペルソナ数を増やす"
+               onClick={increaseValue}
+               disabled={displayCount === maxValue}
+             >
+               <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
+             </Button>
            </div>
-           <Slider
-             value={[displayCount]}
-             onValueChange={(value) => setDisplayCount(value[0])}
-             min={1}
-             max={50}
-             step={1}
-           />
-           <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-500 pt-1">
                推奨オプション: {suggestion.personaCountOptions.join(', ')}人
              </div>
          </div>
 
+         {/* --- Detail Level Radio Group (Unchanged) --- */}
          <div className="space-y-2">
            <Label className="font-medium">詳細度:</Label>
-           <RadioGroup
-             value={displayDetailLevel}
-             onValueChange={(value: string) => setDisplayDetailLevel(value as DetailLevel)}
-             className="flex items-center space-x-4"
-           >
-             {detailLevels.map((level) => (
-               <div key={level} className="flex items-center space-x-2">
-                 <RadioGroupItem 
-                   value={level} 
-                   id={`detail-${level}`} 
-                   className="border-gray-400 text-gray-900"
-                 />
-                 <Label 
-                   htmlFor={`detail-${level}`} 
-                   className="text-sm font-normal text-gray-700 cursor-pointer"
-                 >
-                   {detailLevelLabels[level]}
-                 </Label>
-               </div>
-             ))}
-           </RadioGroup>
+           <RadioGroup 
+              value={displayDetailLevel}
+              onValueChange={(value: string) => setDisplayDetailLevel(value as DetailLevel)}
+              className="flex items-center space-x-4"
+            >
+              {detailLevels.map((level) => (
+                <div key={level} className="flex items-center space-x-2">
+                  <RadioGroupItem 
+                    value={level} 
+                    id={`detail-${level}`} 
+                    className="border-gray-400 text-gray-900"
+                  />
+                  <Label 
+                    htmlFor={`detail-${level}`} 
+                    className="text-sm font-normal text-gray-700 cursor-pointer"
+                  >
+                    {detailLevelLabels[level]}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
          </div>
+
+         {/* --- Attributes Display (Unchanged) --- */}
          <div className="flex items-start text-sm pt-2">
-           <Label className="font-medium min-w-[70px] text-gray-700">推奨属性:</Label>
-           <span className="ml-2 text-gray-800">{suggestion.attributes}</span>
+            <Label className="font-medium min-w-[70px] text-gray-700">推奨属性:</Label>
+            <span className="ml-2 text-gray-800">{suggestion.attributes}</span>
          </div>
        </div>
-       <p className="text-sm text-gray-500">設定を調整後、チャットで「はい」と返信して開始してください。</p>
+       {/* Inform user about action buttons */}
+       <p className="text-sm text-gray-500">設定を調整後、下のボタンで指示してください。</p>
     </div>
   );
 };
@@ -1098,6 +1148,7 @@ export function PersonaSimulationPage() {
   const [currentAnalysisType, setCurrentAnalysisType] = useState<string | null>(null);
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
   const [viewBeforeList, setViewBeforeList] = useState<SimulationView>('results_dashboard');
+  const navigate = useNavigate(); // ★ Initialize useNavigate
 
   useEffect(() => {
     setChatHistory([
@@ -1139,8 +1190,19 @@ export function PersonaSimulationPage() {
       return [...history, newMessage];
   };
 
-  const handleSendMessage = async (message: string, isActionClick = false, payload: any = null) => {
-    console.log(`handleSendMessage called. isLoading: ${isLoading}, message: ${message}, isActionClick: ${isActionClick}, payload: ${JSON.stringify(payload)}`);
+  // ★ Updated handleSendMessage
+  const handleSendMessage = async (
+      message: string,
+      // Accept mode for regular messages or action string for action clicks
+      modeOrAction: 'normal' | 'persona_question' | `Action: ${string}` = 'normal',
+      payload: any = null
+  ) => {
+    // Determine if it's an action click based on the modeOrAction parameter
+    const isActionClick = typeof modeOrAction === 'string' && modeOrAction.startsWith('Action:');
+    // Determine the current mode (relevant for non-action messages)
+    const currentMode = isActionClick ? 'normal' : modeOrAction;
+
+    console.log(`handleSendMessage called. isLoading: ${isLoading}, message: ${message}, mode/action: ${modeOrAction}, payload: ${JSON.stringify(payload)}`);
     if (isLoading) { 
         console.warn("Attempted to send message while already loading. Aborting.");
         return; 
@@ -1155,62 +1217,117 @@ export function PersonaSimulationPage() {
 
     // Add user message first if applicable
     if (!isActionClick) { 
-      const newUserMessage: ChatMessage = { id: `user-${messageTimestamp}`, role: 'user', content: message };
+      // Prepend mode indicator for persona questions
+      const userMessageContent = currentMode === 'persona_question' ? `[ペルソナへの質問]\n${message}` : message;
+      const newUserMessage: ChatMessage = { id: `user-${messageTimestamp}`, role: 'user', content: userMessageContent };
       console.log("Adding user message:", newUserMessage.id);
-      setChatHistory(prev => addUniqueMessage(prev, newUserMessage)); // Use helper
+      setChatHistory(prev => addUniqueMessage(prev, newUserMessage));
     }
-    else { console.log(`Action Triggered: ${message} (Timestamp: ${messageTimestamp}) with payload:`, payload); }
+    else { console.log(`Action Triggered: ${modeOrAction} (Timestamp: ${messageTimestamp}) with payload:`, payload); }
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 50));
-      console.log(`Processing logic. Current View was: ${currentView}, Message: ${message}`);
+      await new Promise(resolve => setTimeout(resolve, 50)); // Short delay for state update
+      console.log(`Processing logic. Current View was: ${currentView}, Message: ${message}, Mode/Action: ${modeOrAction}`);
 
       // --- BRANCH 1: Handle ALL Actions --- 
-      if (isActionClick && message.startsWith('Action:')) {
-          const action = message.split(': ')[1].trim(); 
+      if (isActionClick) {
+          const action = modeOrAction.split(': ')[1].trim(); // Get action from modeOrAction
           console.log(`[Action Branch] Processing action: ${action}`);
 
+          // Helper functions for actions, passing the action string now
+          const handleAnalysisAction = (analysisType: string, personasPayload: AIPersona[]) => { handleSendMessage(analysisType, `Action: ${analysisType} を実行`, { personas: personasPayload }); };
+          const handleViewListAction = () => { handleSendMessage('View Persona List', 'Action: View Persona List'); };
+
           if (action === 'Confirm Generation' && payload?.suggestion) {
-              const suggestionFromPayload = payload.suggestion as AISuggestion;
-              const settingsToUse = { count: suggestionFromPayload.selectedPersonaCount, level: suggestionFromPayload.detailLevel };
-              console.log("[Debug] Settings derived from payload:", settingsToUse);
+              const suggestionFromPayload = payload.suggestion as AISuggestion & { requestContext?: string };
+              const settingsToUse = currentSettings ?? { count: suggestionFromPayload.selectedPersonaCount, level: suggestionFromPayload.detailLevel }; // Use currentSettings if available
+              console.log("[Debug] Settings derived for generation:", settingsToUse);
               aiResponse = {
                 id: aiResponseId,
                 role: 'ai',
-                content: `承知しました。(ID: ${aiResponseId}) ペルソナ (${settingsToUse.count}人, 詳細度: ${detailLevelLabels[settingsToUse.level]}) を生成します...`
+                // Simplified AI response, removed ID
+                content: `承知しました。ペルソナ (${settingsToUse.count}人, 詳細度: ${detailLevelLabels[settingsToUse.level]}) を生成します...`
               };
               nextView = 'generating'; // Target view
               console.log(`[Debug] Confirm Generation action. Intending view: ${nextView}. Starting generation...`);
               if(aiResponse) { setChatHistory(prev => addUniqueMessage(prev, aiResponse!)); }
               setCurrentView('generating'); // Set view NOW
               viewChangedInternally = true;
+              // --- Start Async Generation --- 
               setTimeout(async () => { 
                  const generationStartTime = Date.now();
-                 console.log(`[Debug] Generation setTimeout started at ${generationStartTime}.`);
                  try {
                     console.log("Starting generation with settings:", settingsToUse);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000)); // Simulate generation time
                     const generatedCount = settingsToUse.count;
                     const detailLevel = settingsToUse.level;
-                    const initialResults: AIPersona[] = Array.from({ length: generatedCount }).map((_, i) => ({ id: `p${i + 1}`, name: `ペルソナ ${i + 1}`, details: `(${generatedCount}人/${detailLevel}) 詳細 ${i + 1}`, response: `要望への応答 ${i + 1}`, }));
-                    const newResultSet: ResultSet = { id: `res-${generationStartTime}`, title: '生成結果', personas: initialResults };
-                    const generatedResultSetId = newResultSet.id;
-                    console.log(`[Debug] Generated ResultSet ID: ${generatedResultSetId}, Personas Count: ${initialResults.length}`);
-                    setResultSets(prev => [...prev, newResultSet]);
-                    setDisplayedResultSetIndex(prevIndex => resultSets.length); // Correct way to get next index before state update
 
-                    // Pass the *actual persona data* as payload
-                    const handleAnalysisAction = (analysisType: string, personasPayload: AIPersona[]) => {
-                        console.log(`[Debug] Analysis action triggered for type: ${analysisType}, with ${personasPayload.length} personas in payload.`);
-                        handleSendMessage(`Action: ${analysisType} を実行`, true, { personas: personasPayload }); // Pass personas data
-                    };
-                    const handleViewListAction = () => { handleSendMessage('Action: View Persona List', true); }; 
+                    // --- Richer Mock Persona Generation (using context) --- 
+                    const mockNames = ['佐藤 裕子', 'Michael Chen', '田中 健太', 'Emily White', '鈴木 あかり', 'David Rodriguez', '高橋 直樹', 'Sophia Lee', '渡辺 恵子', 'Daniel Kim'];
+                    const mockOccupations = ['デザイナー', '学生', 'エンジニア', 'マーケター', '主婦', '経営者', 'フリーランサー', '教師'];
+                    const mockInterests = ['最新テクノロジー', 'ミニマリズム', '旅行', '料理', 'ゲーム', '読書', '音楽鑑賞', 'アウトドア'];
+                    const mockPersonalities = ['慎重派', '楽観的', '分析的', '社交的', '内向的', '現実的'];
+
+                    const reqContext = (suggestionFromPayload.requestContext || "").toLowerCase();
+                    let contextFocus = "標準";
+                    if (reqContext.includes('ui') || reqContext.includes('デザイン') || reqContext.includes('ux')) contextFocus = "UI/UX";
+                    else if (reqContext.includes('価格') || reqContext.includes('コスト') || reqContext.includes('料金')) contextFocus = "価格";
+                    else if (reqContext.includes('学生') || reqContext.includes('若者')) contextFocus = "若年層";
+
+                    const initialResults: AIPersona[] = Array.from({ length: generatedCount }).map((_, i) => {
+                        const name = mockNames[i % mockNames.length];
+                        const ageRange = `${Math.floor(Math.random() * 4 + 2) * 10}代`; // 20代-50代
+                        const occupation = mockOccupations[Math.floor(Math.random() * mockOccupations.length)];
+                        let details = `${ageRange}, ${occupation}, ${mockPersonalities[Math.floor(Math.random() * mockPersonalities.length)]}. `;
+                        details += `興味: ${mockInterests[Math.floor(Math.random() * mockInterests.length)]}. `;
+
+                        let response = "";
+                        const baseResponse = [
+                            "全体的には良い印象ですが、いくつか改善点も感じました。",
+                            "直感的に操作でき、非常に使いやすいと思います。",
+                            "機能は豊富ですが、少し複雑に感じる部分もありました。",
+                            "デザインが洗練されていて、好感が持てます。",
+                            "期待していた通りの機能性で満足しています。",
+                            "もう少しシンプルな方が好みかもしれません。",
+                            "他の類似サービスと比較しても、競争力があると感じます。",
+                            "初心者でもすぐに使いこなせそうです。"
+                        ];
+                        response = baseResponse[Math.floor(Math.random() * baseResponse.length)];
+
+                        if (detailLevel === 'medium' || detailLevel === 'high') {
+                             details += `テクノロジーへの関心: ${Math.random() > 0.5 ? '高い' : '普通'}. `;
+                             if (contextFocus === "UI/UX") {
+                                 details += "特にインターフェースの使いやすさを重視する傾向。";
+                                 response += " ナビゲーションがもう少し分かりやすいと、さらに良いでしょう。";
+                             } else if (contextFocus === "価格") {
+                                 details += "コストパフォーマンスに関心あり。";
+                                 response += " 価格設定については、もう少し手頃だと嬉しいです。";
+                             }
+                        }
+                         if (detailLevel === 'high') {
+                             details += `PC/スマホ利用歴: ${Math.floor(Math.random() * 10 + 5)}年以上. `;
+                             response += ` 詳細なレポート機能があれば、業務効率が上がりそうです。`;
+                         }
+
+                        return {
+                             id: `p${generationStartTime}-${i + 1}`,
+                             name: name,
+                             details: details.trim(),
+                             response: response.trim()
+                         };
+                     });
+                    // --- End of Mock Persona Generation --- 
+
+                    const newResultSet: ResultSet = { id: `res-${generationStartTime}`, title: '初期生成結果', personas: initialResults }; // More descriptive title
+                    console.log(`[Debug] Generated ResultSet ID: ${newResultSet.id}, Personas Count: ${initialResults.length}`);
+                    // Add new result set and update displayed index immediately
+                    setResultSets(prev => [...prev, newResultSet]);
+                    setDisplayedResultSetIndex(resultSets.length); // Index will be the new length - 1
 
                     const generationCompleteMsg: ChatMessage = {
                         id: `sys-gen-complete-${generationStartTime}`, role: 'system',
                         content: `ペルソナ生成 (${initialResults.length}人) が完了しました。結果概要を上に表示します。\n追加分析や個別リストの確認も可能です。`,
                         actions: [
-                            // Pass initialResults directly to onClick
                            { id: 'act-sentiment', label: '感情分析を実行', onClick: () => handleAnalysisAction('感情分析', initialResults) }, 
                            { id: 'act-keywords', label: '主要キーワード抽出', onClick: () => handleAnalysisAction('キーワード抽出', initialResults) }, 
                            { id: 'act-view-list', label: 'ペルソナ一覧を見る', onClick: handleViewListAction }, 
@@ -1219,7 +1336,7 @@ export function PersonaSimulationPage() {
                     console.log("Generation complete. Adding system message:", generationCompleteMsg.id);
                     setChatHistory(prev => addUniqueMessage(prev, generationCompleteMsg));
                     setCurrentView('results_dashboard');
-                    setCurrentRequest(null); setAiSuggestion(null); 
+                    setCurrentRequest(null); setAiSuggestion(null); setCurrentSettings(null); // Reset suggestion/settings
                     console.log("Generation successful. View set to results_dashboard.");
                  } catch (genError) { 
                     console.error("Generation error inside setTimeout:", genError);
@@ -1230,35 +1347,33 @@ export function PersonaSimulationPage() {
                     console.log("Generation setTimeout finally block. Setting isLoading to false.");
                     setIsLoading(false);
                  }
-               }, 100);
-               // isLoading remains true until setTimeout finishes
+               }, 100); // Short delay before starting the fake generation
+               // isLoading remains true until generation setTimeout finishes
 
           } else if (action === 'Request Modification') {
               console.log("[Action Branch] Request Modification");
-              aiResponse = { id: aiResponseId, role: 'ai', content: `修正指示ですね。(ID: ${aiResponseId}) 申し訳ありませんが、この機能は現在実装中です。設定を調整し、「はい、生成を開始」ボタンを押してください。` };
-              nextView = 'confirmation';
+              aiResponse = { id: aiResponseId, role: 'ai', content: `修正指示ですね。申し訳ありませんが、この機能は現在実装中です。設定を調整し、「はい、生成を開始」ボタンを押してください。` }; // Removed ID
+              nextView = 'confirmation'; // Stay in confirmation view
               setIsLoading(false);
 
           } else if (action === '感情分析 を実行' && payload?.personas) {
               const targetPersonas = payload.personas as AIPersona[];
               console.log(`[Action Branch] 感情分析 using payload. Found ${targetPersonas.length} personas.`);
               if (targetPersonas.length > 0) {
-                  aiResponse = { id: aiResponseId, role: 'ai', content: `了解しました。「感情分析」を実行し、結果を表示します。(ID: ${aiResponseId})` };
+                  aiResponse = { id: aiResponseId, role: 'ai', content: `了解しました。「感情分析」を実行し、結果を表示します。` }; // Removed ID
                   setCurrentAnalysisType('感情分析');
-                  // Try to find the index of the result set matching the payload personas
-                  // Note: This relies on object reference equality which might be brittle.
-                  // A more robust way would be to pass the resultSetId *as well* and use that.
+                  // Find the result set containing these personas
                   const matchingIndex = resultSets.findIndex(rs => rs.personas === targetPersonas);
                   if (matchingIndex !== -1) {
                      setDisplayedResultSetIndex(matchingIndex);
                      console.log(`[Action Branch] Set displayed index to ${matchingIndex} for analysis.`);
                   } else {
                      console.warn("[Action Branch] Could not find matching result set index for sentiment analysis payload.");
-                     // Fallback: display the latest results? Or show an error?
-                     // For now, proceed, AnalysisResultView will use the potentially incorrect index.
+                     // Fallback: Display the latest result set if available
+                     if (resultSets.length > 0) setDisplayedResultSetIndex(resultSets.length - 1);
                   }
                   nextView = 'analysis_result';
-                  await new Promise(resolve => setTimeout(resolve, 500)); 
+                  await new Promise(resolve => setTimeout(resolve, 300)); // Simulate analysis time
               } else {
                   console.warn(`[Action Branch] Payload contained 0 personas for 感情分析.`);
                   aiResponse = { id: aiResponseId, role: 'ai', content: `分析対象のデータが見つかりませんでした。` };
@@ -1270,7 +1385,7 @@ export function PersonaSimulationPage() {
               const targetPersonas = payload.personas as AIPersona[];
               console.log(`[Action Branch] キーワード抽出 using payload. Found ${targetPersonas.length} personas.`);
                if (targetPersonas.length > 0) {
-                  aiResponse = { id: aiResponseId, role: 'ai', content: `了解しました。「キーワード抽出」を実行し、結果を表示します。(ID: ${aiResponseId})` };
+                  aiResponse = { id: aiResponseId, role: 'ai', content: `了解しました。「キーワード抽出」を実行し、結果を表示します。` }; // Removed ID
                   setCurrentAnalysisType('キーワード抽出');
                   const matchingIndex = resultSets.findIndex(rs => rs.personas === targetPersonas);
                   if (matchingIndex !== -1) {
@@ -1278,85 +1393,139 @@ export function PersonaSimulationPage() {
                      console.log(`[Action Branch] Set displayed index to ${matchingIndex} for keyword analysis.`);
                   } else {
                      console.warn("[Action Branch] Could not find matching result set index for keyword analysis payload.");
+                     if (resultSets.length > 0) setDisplayedResultSetIndex(resultSets.length - 1);
                   }
                   nextView = 'analysis_result';
-                  await new Promise(resolve => setTimeout(resolve, 500)); 
+                  await new Promise(resolve => setTimeout(resolve, 300)); 
                } else {
                    console.warn(`[Action Branch] Payload contained 0 personas for キーワード抽出.`);
-                   aiResponse = { id: aiResponseId, role: 'ai', content: `分析対象のデータが見つかりませんでした。` }; // Corrected typo
+                   aiResponse = { id: aiResponseId, role: 'ai', content: `分析対象のデータが見つかりませんでした。` };
                    nextView = currentView; 
                }
               setIsLoading(false);
 
-          } else if (action === 'View Persona List' && resultSets.length > 0) {
+          } else if (action === 'View Persona List') {
               console.log("[Action Branch] View Persona List");
-              aiResponse = { id: `sys-view-list-${messageTimestamp}`, role: 'system', content: `ペルソナ一覧を表示します。(ID: sys-view-list-${messageTimestamp})` };
-              handleViewPersonaList(); // Sets view internally
-              nextView = 'persona_list';
-              viewChangedInternally = true;
+              if (resultSets.length > 0) {
+                  aiResponse = { id: `sys-view-list-${messageTimestamp}`, role: 'system', content: `ペルソナ一覧を表示します。` }; // Removed ID
+                  handleViewPersonaList(); // Sets view internally
+                  nextView = 'persona_list';
+                  viewChangedInternally = true;
+              } else {
+                  aiResponse = { id: aiResponseId, role: 'ai', content: `表示するペルソナリストがありません。先にペルソナを生成してください。` };
+                  nextView = currentView;
+              }
               setIsLoading(false);
 
           } else {
-              console.warn(`[Action Branch] Unknown action or results not ready: ${action}`);
+              console.warn(`[Action Branch] Unknown action or missing data: ${action}`);
               aiResponse = { id: aiResponseId, role: 'ai', content: `アクション「${action}」を実行できませんでした。` };
               nextView = currentView; // Stay in current view
               setIsLoading(false);
           }
-      // --- BRANCH 2: Handle Non-Action Messages based on Current View --- 
+      // --- BRANCH 2: Handle Non-Action Messages based on Current View & Mode --- 
       } else if (!isActionClick) {
-          console.log(`[View Branch] Processing text message in view: ${currentView}`);
-          if (currentView === 'initial') {
-              console.log("Processing initial user request.");
-              setCurrentRequest(message);
-              let attributes = "属性: 標準セット (仮)";
-              if (message.toLowerCase().includes('ui') || message.toLowerCase().includes('デザイン')) attributes = "属性: UI/UX重視 (仮)";
-              else if (message.toLowerCase().includes('価格') || message.toLowerCase().includes('コスト')) attributes = "属性: 価格感度 高 (仮)";
-              const dummySuggestion: AISuggestion = { personaCountOptions: [5, 10, 20], selectedPersonaCount: 8, attributes: attributes, detailLevel: 'medium', };
-              setAiSuggestion(dummySuggestion);
-              setCurrentSettings({ count: dummySuggestion.selectedPersonaCount, level: dummySuggestion.detailLevel });
-              const handleConfirmAction = (suggestionPayload: AISuggestion) => { handleSendMessage('Action: Confirm Generation', true, { suggestion: suggestionPayload }); };
-              const handleModifyAction = () => { handleSendMessage('Action: Request Modification', true); };
-              aiResponse = { id: aiResponseId, role: 'ai', content: `リクエスト了解しました。(ID: ${aiResponseId})\nペルソナ${dummySuggestion.selectedPersonaCount}人 (詳細度: ${detailLevelLabels[dummySuggestion.detailLevel]}, 属性: ${attributes}) の生成を提案します。\n内容を確認・調整し、下のボタンで指示してください。`, actions: [ { id: 'act-confirm-gen', label: 'はい、生成を開始', onClick: () => handleConfirmAction(dummySuggestion) }, { id: 'act-req-modify', label: 'いいえ、修正を指示 (未実装)', onClick: handleModifyAction }, ] };
-              nextView = 'confirmation';
-              setIsLoading(false); // Allow button click
+          console.log(`[View Branch] Processing text message in view: ${currentView}, Mode: ${currentMode}`);
 
-          } else if (currentView === 'confirmation') {
-              console.log("Processing unexpected text input during confirmation.");
-              aiResponse = { id: aiResponseId, role: 'ai', content: `下のボタンで指示してください。(ID: ${aiResponseId})` };
-              nextView = 'confirmation';
-              setIsLoading(false);
+          // --- Sub-Branch 2.1: Normal Mode --- 
+          if (currentMode === 'normal') {
+              if (currentView === 'initial') {
+                  console.log("Processing initial user request (Normal Mode).");
+                  setCurrentRequest(message);
+                  // --- Generate Suggestion --- 
+                  let attributes = "属性: 標準セット";
+                  const reqLower = message.toLowerCase();
+                  let contextFocus = "標準"; 
+                  if (reqLower.includes('ui') || reqLower.includes('デザイン')) { attributes = "属性: UI/UX重視"; contextFocus = "UI/UX"; }
+                  else if (reqLower.includes('価格') || reqLower.includes('コスト')) { attributes = "属性: 価格感度 高"; contextFocus = "価格"; }
+                  else if (reqLower.includes('学生') || reqLower.includes('若者')) { attributes = "属性: 若年層中心"; contextFocus = "若年層"; }
 
-          } else if (currentView === 'results_dashboard' || currentView === 'analysis_result' || currentView === 'persona_list' || currentView === 'persona_detail') {
-              console.log("Processing follow-up text message.");
-              aiResponse = { id: aiResponseId, role: 'ai', content: `メッセージ「${message}」を受け取りました。(個別対話未実装, ID: ${aiResponseId})` };
-              nextView = currentView;
-              setIsLoading(false);
+                  const dummySuggestion: AISuggestion & { requestContext?: string } = {
+                   personaCountOptions: [5, 10, 20],
+                   selectedPersonaCount: Math.random() < 0.3 ? 5 : Math.random() < 0.6 ? 10 : 15, // Randomize default slightly
+                   attributes: attributes + " (自動提案)",
+                   detailLevel: 'medium',
+                   requestContext: message // Pass original request for context
+                  };
 
-          } else if (currentView === 'generating') {
-              console.log("Message received while generating.");
-              aiResponse = { id: aiResponseId, role: 'ai', content: '現在生成中です。完了までお待ちください。' };
-              nextView = 'generating';
-              // isLoading remains true
-          } else {
-              console.log(`[View Branch] Fallback for text in view: ${currentView}`);
-              aiResponse = { id: aiResponseId, role: 'ai', content: `(現在の状態: ${currentView}) 「${message}」に予期せぬタイミングで応答できません。` };
+                  setAiSuggestion(dummySuggestion); 
+                  // Set initial settings based on suggestion
+                  setCurrentSettings({ count: dummySuggestion.selectedPersonaCount, level: dummySuggestion.detailLevel });
+                  
+                  // --- Create Confirmation Response --- 
+                  const handleConfirmAction = (suggestionPayload: AISuggestion & { requestContext?: string }) => {
+                      console.log("Confirm Action Clicked with payload:", suggestionPayload);
+                      // Pass the suggestion object in the payload
+                      handleSendMessage('Confirm Generation', 'Action: Confirm Generation', { suggestion: suggestionPayload });
+                  };
+                  const handleModifyAction = () => {
+                      handleSendMessage('Request Modification', 'Action: Request Modification');
+                  };
+                  aiResponse = {
+                      id: aiResponseId, role: 'ai',
+                      content: `リクエスト了解しました。\nペルソナ${dummySuggestion.selectedPersonaCount}人 (詳細度: ${detailLevelLabels[dummySuggestion.detailLevel]}, ${dummySuggestion.attributes}) の生成を提案します。\n内容を確認・調整し、下のボタンで指示してください。`,
+                      actions: [
+                          { id: 'act-confirm-gen', label: 'はい、生成を開始', onClick: () => handleConfirmAction(dummySuggestion) },
+                          { id: 'act-req-modify', label: 'いいえ、修正を指示 (未実装)', onClick: handleModifyAction },
+                      ]
+                  };
+                  nextView = 'confirmation';
+                  setIsLoading(false); 
+
+              } else if (currentView === 'confirmation') {
+                  console.log("Processing unexpected text input during confirmation (Normal Mode).");
+                  aiResponse = { id: aiResponseId, role: 'ai', content: `設定を確認・調整し、下のボタンで指示してください。` }; // Removed ID
+                  nextView = 'confirmation';
+                  setIsLoading(false);
+
+              } else if (currentView === 'results_dashboard' || currentView === 'analysis_result' || currentView === 'persona_list' || currentView === 'persona_detail') {
+                  console.log("Processing follow-up text message (Normal Mode).");
+                  // Simple echo for now, future: more complex interaction
+                  aiResponse = { id: aiResponseId, role: 'ai', content: `メッセージ「${message}」を受け取りました。(通常モード: 対話機能は未実装)` }; // Removed ID
+                  nextView = currentView;
+                  setIsLoading(false);
+
+              } else if (currentView === 'generating') {
+                  console.log("Message received while generating (Normal Mode).");
+                  aiResponse = { id: aiResponseId, role: 'ai', content: '現在ペルソナ生成中です。完了までお待ちください。' };
+                  nextView = 'generating';
+                  // isLoading remains true
+              } else {
+                  console.log(`[View Branch] Fallback for text in view: ${currentView} (Normal Mode)`);
+                  aiResponse = { id: aiResponseId, role: 'ai', content: `(現在の状態: ${currentView}) 「${message}」に予期せぬタイミングで応答できません。` };
+                  setIsLoading(false);
+                  nextView = currentView;
+              }
+          // --- Sub-Branch 2.2: Persona Question Mode --- 
+          } else if (currentMode === 'persona_question') {
+              console.log("Processing persona question.");
+              if (resultSets.length > 0 && resultSets[displayedResultSetIndex]?.personas?.length > 0) {
+                  const currentPersonas = resultSets[displayedResultSetIndex].personas;
+                  // Simple placeholder response for persona question
+                  aiResponse = { id: aiResponseId, role: 'ai', content: `ペルソナへの質問「${message}」を受け取りました。\n(各ペルソナからの回答生成は未実装です)` };
+                  // Future: Implement actual persona response generation here
+                  // e.g., const personaResponses = await generatePersonaResponses(currentPersonas, message);
+                  // aiResponse.content += "\n---\n" + personaResponses.join("\n---\n");
+              } else {
+                  aiResponse = { id: aiResponseId, role: 'ai', content: `質問対象のペルソナがいません。先にペルソナを生成してください。` };
+              }
+              nextView = currentView; // Stay in the current view
               setIsLoading(false);
-              nextView = currentView;
           }
-      // --- BRANCH 3: Fallback (Should ideally not be reached often) --- 
+      // --- BRANCH 3: Fallback (Should not be reached often) --- 
       } else {
-           console.log(`[Fallback Branch] Unhandled state/message combination. View: ${currentView}, Message: ${message}, IsAction: ${isActionClick}`);
-           aiResponse = { id: aiResponseId, role: 'ai', content: `予期せぬエラーが発生しました。` };
+           console.log(`[Fallback Branch] Unhandled state/message combination. View: ${currentView}, Message: ${message}, Mode/Action: ${modeOrAction}`);
+           aiResponse = { id: aiResponseId, role: 'ai', content: `予期せぬエラーが発生しました。処理を続行できません。` };
            setIsLoading(false);
-           nextView = currentView;
+           nextView = currentView; // Or potentially 'error' view
       }
 
       // --- Final State Updates --- 
       // Add AI response unless it was added before setTimeout (Confirm Generation action)
       let shouldAddResponse = true;
-      if (isActionClick && message.startsWith('Action:')) {
-          const action = message.split(': ')[1].trim();
-          if (action === 'Confirm Generation' && payload?.suggestion) {
+      if (isActionClick) {
+          const actionInner = modeOrAction.split(': ')[1].trim();
+          if (actionInner === 'Confirm Generation' && payload?.suggestion) {
               shouldAddResponse = false; // Already added before setTimeout
           }
       }
@@ -1375,7 +1544,19 @@ export function PersonaSimulationPage() {
       } else {
           console.log(`View change for ${nextView} was handled internally.`);
       }
-      console.log(`End of handleSendMessage. isLoading state reflects outcome.`);
+      // Ensure isLoading is false unless generation is ongoing
+      if (!(isActionClick && modeOrAction.startsWith('Action: Confirm Generation'))) {
+          // Check if generation is NOT the action that keeps isLoading true
+          if (isLoading && !(currentView === 'generating')) {
+             //This condition should only be met if generation finished/errored in the action block
+          } else if (currentView !== 'generating') {
+              // If not generating, ensure loading is false (unless set true at start)
+              // The setTimeout in generation handles its own isLoading=false
+              // console.log(`End of handleSendMessage. Setting isLoading to false (not generating).`);
+              // setIsLoading(false); // This might be causing premature loading=false
+          }
+      }
+      console.log(`End of handleSendMessage. isLoading state reflects outcome (should be true only if generating). Current view: ${currentView}`);
 
     } catch (error) {
       console.error("Error in handleSendMessage:", error);
@@ -1387,15 +1568,16 @@ export function PersonaSimulationPage() {
     }
   };
 
+  // Initial request submission (no changes needed here)
   const handleSubmitInitialRequest = (request: string) => {
-    handleSendMessage(request); 
+    handleSendMessage(request, 'normal'); // Explicitly pass 'normal' mode
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 overflow-hidden">
+    <div className="flex flex-col h-screen bg-gray-100 overflow-hidden relative"> {/* ★ Added relative positioning */}
       <DynamicContentArea
         currentView={currentView}
-        onSubmitRequest={handleSubmitInitialRequest}
+        onSubmitRequest={handleSubmitInitialRequest} // This is for the initial input view if used
         personas={resultSets[displayedResultSetIndex]?.personas ?? []}
         userRequestForConfirmation={currentRequest}
         aiSuggestion={aiSuggestion} 
@@ -1408,7 +1590,28 @@ export function PersonaSimulationPage() {
         onViewPersonaList={handleViewPersonaList}
       />
       <ChatHistoryArea chatHistory={chatHistory} />
-      <ChatInputBar onSendMessage={handleSendMessage} isLoading={isLoading} />
+      <AI_Prompt onSendMessage={handleSendMessage} isLoading={isLoading} />
+
+      {/* ★ Fluid Menu positioned at top left */}
+      <div className="absolute top-8 left-8 z-50"> {/* Changed positioning */}
+        <MenuContainer>
+          <MenuItem
+            icon={
+              <div className="relative w-6 h-6">
+                <div className="absolute inset-0 transition-all duration-300 ease-in-out origin-center opacity-100 scale-100 rotate-0 [div[data-expanded=true]_&]:opacity-0 [div[data-expanded=true]_&]:scale-0 [div[data-expanded=true]_&]:rotate-180">
+                  <MenuIcon size={24} strokeWidth={1.5} />
+                </div>
+                <div className="absolute inset-0 transition-all duration-300 ease-in-out origin-center opacity-0 scale-0 -rotate-180 [div[data-expanded=true]_&]:opacity-100 [div[data-expanded=true]_&]:scale-100 [div[data-expanded=true]_&]:rotate-0">
+                  <X size={24} strokeWidth={1.5} />
+                </div>
+              </div>
+            }
+          />
+          <MenuItem icon={<Home size={24} strokeWidth={1.5} />} onClick={() => navigate('/')} />
+          <MenuItem icon={<Sparkles size={24} strokeWidth={1.5} />} onClick={() => navigate('/persona-simulation')} isActive={true} />
+          {/* Removed other menu items */}
+        </MenuContainer>
+      </div>
     </div>
   );
 } 

@@ -2,20 +2,13 @@ import { Link, useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 // import { ModeToggle } from "@/components/mode-toggle"
-import { useSimulationStore } from "@/lib/store/simulationStore"
 
 export function Header() {
   const location = useLocation()
-  const isSimulationPage = location.pathname === '/persona-simulation';
-  const totalSteps = 4;
-  const currentStep = useSimulationStore((state) => state.currentStep);
-  const displayStep = Math.min(currentStep, 3);
-  // TODO: Remove this line once state management is fully integrated
-  // const currentStepForDisplay = isSimulationPage ? 0 : -1; // Placeholder削除
 
   const navigation = [
     { name: "ホーム", href: "/" },
-    // { name: "ペルソナ作成", href: "/persona/generate" }, // リンクを削除
+    // { name: "ペルソナ作成", href: "/persona/generate" },
   ]
 
   return (
@@ -52,21 +45,6 @@ export function Header() {
           </nav>
         </div>
       </div>
-      {/* --- Simulation Progress Bar (visible only on simulation page) --- */}
-      {isSimulationPage && (
-        <div className="w-full h-1 bg-gray-200"> {/* Bar background */}
-          <div className="flex h-full">
-            {Array.from({ length: totalSteps }).map((_, index) => (
-              <div
-                key={index}
-                className={`flex-1 transition-colors duration-300 ${
-                  index <= displayStep ? 'bg-gray-900' : 'bg-transparent'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-      )}
     </header>
   )
 } 
