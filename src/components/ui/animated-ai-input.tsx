@@ -98,9 +98,10 @@ const OPENAI_ICON = (
 interface AI_PromptProps {
     onSendMessage: (message: string, mode: 'normal' | 'persona_question') => void;
     isLoading: boolean;
+    selectedPersonaCountForQuery: number;
 }
 
-export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
+export function AI_Prompt({ onSendMessage, isLoading, selectedPersonaCountForQuery }: AI_PromptProps) {
     const [value, setValue] = useState("");
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 72,
@@ -280,131 +281,146 @@ export function AI_Prompt({ onSendMessage, isLoading }: AI_PromptProps) {
 
     const placeholderText = currentMode === 'normal'
         ? "AIへの指示やメッセージを入力..."
-        : "ペルソナへの質問を入力...";
+        : selectedPersonaCountForQuery > 0
+            ? `選択中の${selectedPersonaCountForQuery}人のペルソナへ質問...`
+            : "ペルソナ一覧から質問対象を選択してください";
 
     return (
-        <div className="flex-shrink-0 bg-white p-4">
-            <div className="bg-white dark:bg-neutral-900 rounded-2xl p-1.5 max-w-3xl mx-auto border border-gray-200 dark:border-neutral-800">
-                <div className="relative">
-                    <div className="relative flex flex-col">
-                        <canvas
-                            ref={canvasRef}
-                            className={cn(
-                                "absolute pointer-events-none top-0 left-0",
-                                "text-base transform scale-50 origin-top-left",
-                                animating ? "opacity-100" : "opacity-0"
-                            )}
-                        />
-                        <div className="overflow-y-auto">
-                            <Textarea
-                                id="ai-prompt-input"
-                                value={value}
-                                placeholder={placeholderText}
+        <>
+            <div className="flex-shrink-0 bg-white p-4">
+                <div className="bg-white dark:bg-neutral-900 rounded-2xl p-1.5 max-w-3xl mx-auto border border-gray-200 dark:border-neutral-800">
+                    <div className="relative">
+                        <div className="relative flex flex-col">
+                            <canvas
+                                ref={canvasRef}
                                 className={cn(
-                                    "w-full rounded-xl rounded-b-none px-4 py-3 bg-white dark:bg-neutral-800/50 border-none text-black dark:text-white placeholder:text-black/70 dark:placeholder:text-white/70 resize-none focus-visible:ring-0 focus-visible:ring-offset-0",
-                                    "min-h-[72px]",
-                                    animating && "text-transparent dark:text-transparent"
+                                    "absolute pointer-events-none top-0 left-0",
+                                    "text-base transform scale-50 origin-top-left",
+                                    animating ? "opacity-100" : "opacity-0"
                                 )}
-                                ref={textareaRef}
-                                onKeyDown={handleKeyDown}
-                                disabled={isLoading || animating}
-                                onChange={(e) => {
-                                    if (!animating) {
-                                      setValue(e.target.value);
-                                      adjustHeight();
-                                    }
-                                }}
                             />
-                        </div>
-                        <div className="h-14 bg-white dark:bg-neutral-900 rounded-b-xl flex items-center">
-                            <div className="absolute left-3 right-3 bottom-3 flex items-center justify-between w-[calc(100%-24px)]">
-                                <div className="flex items-center gap-2">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                className="flex items-center gap-1 h-8 pl-1 pr-2 text-xs rounded-md text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-neutral-700 dark:hover:text-white focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-blue-500"
-                                                disabled={isLoading || animating}
-                                            >
-                                                <AnimatePresence mode="wait">
-                                                    <motion.div
-                                                        key={currentMode}
-                                                        initial={{ opacity: 0, y: -5 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: 5 }}
-                                                        transition={{ duration: 0.15 }}
-                                                        className="flex items-center gap-1"
-                                                    >
-                                                        {currentMode === 'normal' ? <MessageSquare className="w-3.5 h-3.5"/> : <Users className="w-3.5 h-3.5"/>}
-                                                        {currentMode === 'normal' ? '通常モード' : 'ペルソナ質問'}
-                                                        <ChevronDown className="w-3 h-3 opacity-50" />
-                                                    </motion.div>
-                                                </AnimatePresence>
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent
-                                            className={cn(
-                                                "min-w-[10rem]",
-                                                "border-black/10 dark:border-white/10",
-                                                "bg-white dark:bg-neutral-900"
-                                            )}
-                                        >
-                                            <DropdownMenuItem onSelect={() => setCurrentMode('normal')} className="flex items-center justify-between gap-2 cursor-pointer">
-                                                <div className="flex items-center gap-2">
-                                                    <MessageSquare className="w-4 h-4 opacity-50" />
-                                                    <span>通常モード</span>
-                                                </div>
-                                                {currentMode === 'normal' && <Check className="w-4 h-4 text-blue-500" />}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setCurrentMode('persona_question')} className="flex items-center justify-between gap-2 cursor-pointer">
-                                                 <div className="flex items-center gap-2">
-                                                     <Users className="w-4 h-4 opacity-50" />
-                                                     <span>ペルソナ質問</span>
-                                                 </div>
-                                                 {currentMode === 'persona_question' && <Check className="w-4 h-4 text-blue-500" />}
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                    <div className="h-4 w-px bg-black/10 dark:bg-white/10 mx-0.5" />
-                                    <label
-                                        className={cn(
-                                            "rounded-lg p-2 bg-black/5 dark:bg-white/5 cursor-pointer",
-                                            "hover:bg-black/10 dark:hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-blue-500",
-                                            "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white",
-                                            (isLoading || animating) && "opacity-50 cursor-not-allowed"
-                                        )}
-                                        aria-label="Attach file"
-                                        aria-disabled={isLoading || animating}
-                                    >
-                                        <input type="file" className="hidden" disabled={isLoading || animating} />
-                                        <Paperclip className="w-4 h-4 transition-colors" />
-                                    </label>
-                                </div>
-                                <Button
-                                    type="button"
-                                    aria-label="Send message"
-                                    disabled={!value.trim() || isLoading || animating}
-                                    size="icon"
+                            <div className="overflow-y-auto">
+                                <Textarea
+                                    id="ai-prompt-input"
+                                    value={value}
+                                    placeholder={placeholderText}
                                     className={cn(
-                                        "w-10 h-10 bg-gray-800 hover:bg-gray-700 text-white rounded-full disabled:opacity-50 transition-all",
-                                        "dark:bg-white/10 dark:hover:bg-white/20 dark:text-white"
+                                        "w-full rounded-xl rounded-b-none px-4 py-3 bg-white dark:bg-neutral-800/50 border-none text-black dark:text-white placeholder:text-black/70 dark:placeholder:text-white/70 resize-none focus-visible:ring-0 focus-visible:ring-offset-0",
+                                        "min-h-[72px]",
+                                        animating && "text-transparent dark:text-transparent"
                                     )}
-                                    onClick={handleSendClick}
-                                >
-                                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin"/> : <ArrowRight
+                                    ref={textareaRef}
+                                    onKeyDown={handleKeyDown}
+                                    disabled={isLoading || animating}
+                                    onChange={(e) => {
+                                        if (!animating) {
+                                          setValue(e.target.value);
+                                          adjustHeight();
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <div className="h-14 bg-white dark:bg-neutral-900 rounded-b-xl flex items-center">
+                                <div className="absolute left-3 right-3 bottom-3 flex items-center justify-between w-[calc(100%-24px)]">
+                                    <div className="flex items-center gap-2">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    className="flex items-center gap-1 h-8 pl-1 pr-2 text-xs rounded-md text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-blue-500"
+                                                    disabled={isLoading || animating}
+                                                >
+                                                    <AnimatePresence mode="wait">
+                                                        <motion.div
+                                                            key={currentMode}
+                                                            initial={{ opacity: 0, y: -5 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: 5 }}
+                                                            transition={{ duration: 0.15 }}
+                                                            className="flex items-center gap-1"
+                                                        >
+                                                            {currentMode === 'normal' ? <MessageSquare className="w-3.5 h-3.5"/> : <Users className="w-3.5 h-3.5"/>}
+                                                            {currentMode === 'normal' ? '通常モード' : 'ペルソナ質問'}
+                                                            <ChevronDown className="w-3 h-3 opacity-50" />
+                                                        </motion.div>
+                                                    </AnimatePresence>
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent
+                                                className={cn(
+                                                    "min-w-[10rem]",
+                                                    "border-neutral-200 dark:border-neutral-700",
+                                                    "bg-white dark:bg-neutral-800"
+                                                )}
+                                            >
+                                                <DropdownMenuItem
+                                                    onSelect={() => setCurrentMode('normal')}
+                                                    className="flex items-center justify-between gap-2 cursor-pointer text-neutral-800 dark:text-neutral-200 hover:!bg-neutral-100 dark:hover:!bg-neutral-700"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <MessageSquare className="w-4 h-4 opacity-60" />
+                                                        <span className="text-neutral-800 dark:text-neutral-200">通常モード</span>
+                                                    </div>
+                                                    {currentMode === 'normal' && <Check className="w-4 h-4 text-blue-500" />}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    onSelect={() => {
+                                                        if (selectedPersonaCountForQuery > 0) {
+                                                            setCurrentMode('persona_question');
+                                                        }
+                                                    }}
+                                                    disabled={selectedPersonaCountForQuery === 0}
+                                                    className="flex items-center justify-between gap-2 cursor-pointer text-neutral-800 dark:text-neutral-200 hover:!bg-neutral-100 dark:hover:!bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                     <div className="flex items-center gap-2">
+                                                         <Users className="w-4 h-4 opacity-60" />
+                                                         <span className="text-neutral-800 dark:text-neutral-200">ペルソナ質問</span>
+                                                     </div>
+                                                     {currentMode === 'persona_question' && <Check className="w-4 h-4 text-blue-500" />}
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                        <div className="h-4 w-px bg-black/10 dark:bg-white/10 mx-0.5" />
+                                        <label
+                                            className={cn(
+                                                "rounded-lg p-2 bg-black/5 dark:bg-white/5 cursor-pointer",
+                                                "hover:bg-black/10 dark:hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-blue-500",
+                                                "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white",
+                                                (isLoading || animating) && "opacity-50 cursor-not-allowed"
+                                            )}
+                                            aria-label="Attach file"
+                                            aria-disabled={isLoading || animating}
+                                        >
+                                            <input type="file" className="hidden" disabled={isLoading || animating} />
+                                            <Paperclip className="w-4 h-4 transition-colors" />
+                                        </label>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        aria-label="Send message"
+                                        disabled={!value.trim() || isLoading || animating}
+                                        size="icon"
                                         className={cn(
-                                            "w-4 h-4 transition-opacity duration-200",
-                                            value.trim() && !isLoading && !animating
-                                                ? "opacity-100"
-                                                : "opacity-30"
+                                            "w-10 h-10 bg-gray-800 hover:bg-gray-700 text-white rounded-full disabled:opacity-50 transition-all",
+                                            "dark:bg-white/10 dark:hover:bg-white/20 dark:text-white"
                                         )}
-                                    />}
-                                </Button>
+                                        onClick={handleSendClick}
+                                    >
+                                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin"/> : <ArrowRight
+                                            className={cn(
+                                                "w-4 h-4 transition-opacity duration-200",
+                                                value.trim() && !isLoading && !animating
+                                                    ? "opacity-100"
+                                                    : "opacity-30"
+                                            )}
+                                        />}
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 } 
