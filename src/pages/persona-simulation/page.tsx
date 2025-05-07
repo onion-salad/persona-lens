@@ -353,17 +353,10 @@ const ChatHistoryArea: React.FC<ChatHistoryAreaProps> = ({ chatHistory }) => {
   }, [chatHistory]);
 
   return (
-    // ★ Re-add mask-image for top fade
-    <div 
-      className="h-80 md:h-96 flex-shrink-0 overflow-hidden bg-white relative"
-      style={{
-        maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%)', // Fade in top
-        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%)',
-      }}
-    >
+    // ★ Adjust ChatHistoryArea container: remove fixed height, add flex-grow for vertical expansion
+    <div className="flex-grow overflow-hidden bg-white relative min-h-0"> {/* Added flex-grow and min-h-0 */}
       <ScrollArea className="h-full" ref={scrollAreaRef}>
-        {/* ★ Add padding top for the mask */}
-        <div className="space-y-5 px-6 pb-5 pt-12 max-w-4xl mx-auto"> {/* Added pt-12 */}
+        <div className="space-y-5 px-6 pb-5 pt-12 max-w-4xl mx-auto">
           {chatHistory.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`flex items-start gap-2.5 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -434,6 +427,7 @@ interface DynamicContentAreaProps {
   onBackToList: () => void;
   onBackToDashboard: () => void;
   onViewPersonaList: () => void;
+  onPersonaUpdate: (updatedPersona: AIPersona) => void; // ★ Add onPersonaUpdate prop
 }
 
 // --- View Specific Components --- 
@@ -1001,7 +995,7 @@ const PersonaListView: React.FC<PersonaListViewProps> = ({ personas, onSelectPer
                    onClick={() => onSelectPersona(persona.id)}
                    className="cursor-pointer hover:bg-gray-50 transition-colors"
                  >
-                  <TableCell className="font-medium px-4 py-3 align-top w-[200px]">{persona.name}</TableCell>
+                  <TableCell className="font-medium px-4 py-3 align-top w-[200px] text-gray-900">{persona.name}</TableCell>
                   <TableCell className="text-sm text-gray-600 px-4 py-3 align-top line-clamp-2">{persona.details}</TableCell>
                 </TableRow>
               ))}
@@ -1018,10 +1012,26 @@ const PersonaListView: React.FC<PersonaListViewProps> = ({ personas, onSelectPer
 interface PersonaDetailViewProps {
   persona: AIPersona | null;
   onBackToList: () => void;
-  // onSaveChanges: (updatedPersona: AIPersona) => void; // For future editing
+  // ★ Add onSaveChanges prop for future DB integration
+  onSaveChanges?: (updatedPersona: AIPersona) => void; 
 }
 
-const PersonaDetailView: React.FC<PersonaDetailViewProps> = ({ persona, onBackToList }) => {
+const PersonaDetailView: React.FC<PersonaDetailViewProps> = ({ persona, onBackToList, onSaveChanges }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  // ★ Add state for editable fields
+  const [editableName, setEditableName] = useState(persona?.name || "");
+  const [editableDetails, setEditableDetails] = useState(persona?.details || "");
+  const [editableResponse, setEditableResponse] = useState(persona?.response || "");
+
+  // ★ Effect to update editable fields when persona prop changes
+  useEffect(() => {
+    if (persona) {
+      setEditableName(persona.name);
+      setEditableDetails(persona.details);
+      setEditableResponse(persona.response);
+    }
+  }, [persona]);
+
   if (!persona) {
     return (
       <div className="p-8 text-center text-gray-500">
@@ -1031,53 +1041,105 @@ const PersonaDetailView: React.FC<PersonaDetailViewProps> = ({ persona, onBackTo
     );
   }
 
-  // Placeholder for editing state
-  const [isEditing, setIsEditing] = useState(false);
-  const [editableDetails, setEditableDetails] = useState(persona.details);
-  const [editableResponse, setEditableResponse] = useState(persona.response);
+  const handleSave = () => {
+    // ★ In a real app, call onSaveChanges here
+    if (onSaveChanges) {
+        onSaveChanges({
+            ...persona, // Spread existing persona data
+            id: persona.id, // Ensure ID is passed
+            name: editableName,
+            details: editableDetails,
+            response: editableResponse,
+        });
+    }
+    console.log("Saved (mock):", { name: editableName, details: editableDetails, response: editableResponse });
+    setIsEditing(false);
+  };
 
+  const handleCancel = () => {
+    // Reset editable fields to original persona data
+    if (persona) {
+        setEditableName(persona.name);
+        setEditableDetails(persona.details);
+        setEditableResponse(persona.response);
+    }
+    setIsEditing(false);
+  };
 
   return (
     <div className="h-full overflow-auto bg-white p-6 md:p-8 space-y-6 max-w-4xl mx-auto">
        <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-4">
-         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex-shrink-0">
-              {persona.name.charAt(0).toUpperCase()}
-           </div>
-          <h2 className="text-xl font-semibold text-gray-800">{persona.name}</h2>
-         </div>
+         {isEditing ? (
+            <Input 
+                value={editableName}
+                onChange={(e) => setEditableName(e.target.value)}
+                className="text-xl font-semibold text-gray-900 bg-white border-b-2 border-gray-300 focus:border-gray-500 transition-colors duration-200 py-1 px-2 rounded-sm"
+            />
+         ) : (
+            <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex-shrink-0">
+                    {persona.name.charAt(0).toUpperCase()}
+                </div>
+                 {/* ★ Ensure persona name is dark */}
+                <h2 className="text-xl font-semibold text-gray-900">{persona.name}</h2>
+            </div>
+         )}
          <div className="flex items-center gap-2">
-           <Button variant="outline" size="sm" onClick={onBackToList}>リストへ戻る</Button>
-           {/* Edit Button Placeholder */}
-           <Button variant="default" size="sm" onClick={() => setIsEditing(!isEditing)} disabled> 
-             <Edit3 className="w-3.5 h-3.5 mr-1.5" />
-             {isEditing ? '保存' : '編集'} (未実装)
-           </Button>
+           {/* ★ Hide "リストへ戻る" button when editing */}
+           {!isEditing && <Button variant="outline" size="sm" onClick={onBackToList}>リストへ戻る</Button>}
+           {isEditing ? (
+            <>
+                <Button variant="ghost" size="sm" onClick={handleCancel} className="bg-gray-800 text-white hover:bg-gray-700">キャンセル</Button>
+                <Button variant="default" size="sm" onClick={handleSave} className="bg-gray-700 hover:bg-gray-600 text-white">保存</Button>
+            </>
+           ) : (
+             // ★ Add border to Edit button
+             <Button variant="default" size="sm" onClick={() => setIsEditing(true)} className="border border-gray-700 hover:bg-gray-100 hover:text-gray-900">
+               <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+               編集
+             </Button>
+           )}
          </div>
        </div>
 
       <Card className="bg-gray-50/50 border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">ペルソナ詳細</CardTitle>
+          {/* ★ Ensure title text is dark */}
+          <CardTitle className="text-base font-semibold text-gray-900">ペルソナ詳細</CardTitle>
         </CardHeader>
         <CardContent>
           {isEditing ? (
-             <Textarea value={editableDetails} onChange={(e) => setEditableDetails(e.target.value)} rows={6} className="w-full text-sm" />
+             <Textarea 
+                value={editableDetails} 
+                onChange={(e) => setEditableDetails(e.target.value)} 
+                rows={8}
+                // ★ Ensure black text for textarea
+                className="w-full text-sm text-gray-900 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-transparent resize-none"
+            />
            ) : (
-             <p className="text-sm text-gray-700 whitespace-pre-wrap">{persona.details}</p>
+             // ★ Ensure content text is dark
+             <p className="text-sm text-gray-900 whitespace-pre-wrap p-1">{persona.details}</p>
           )}
         </CardContent>
       </Card>
 
       <Card className="bg-gray-50/50 border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">AIの応答 (初期リクエストに対して)</CardTitle>
+           {/* ★ Ensure title text is dark */}
+          <CardTitle className="text-base font-semibold text-gray-900">AIの応答 (初期リクエストに対して)</CardTitle>
         </CardHeader>
         <CardContent>
            {isEditing ? (
-             <Textarea value={editableResponse} onChange={(e) => setEditableResponse(e.target.value)} rows={8} className="w-full text-sm" />
+             <Textarea 
+                value={editableResponse} 
+                onChange={(e) => setEditableResponse(e.target.value)} 
+                rows={10}
+                // ★ Ensure black text for textarea
+                className="w-full text-sm text-gray-900 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-400 focus:border-transparent resize-none"
+            />
            ) : (
-             <p className="text-sm text-gray-700 whitespace-pre-wrap">{persona.response}</p>
+             // ★ Ensure content text is dark
+             <p className="text-sm text-gray-900 whitespace-pre-wrap p-1">{persona.response}</p>
            )}
         </CardContent>
       </Card>
@@ -1121,7 +1183,8 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
   onSelectPersona,
   onBackToList,
   onBackToDashboard,
-  onViewPersonaList
+  onViewPersonaList,
+  onPersonaUpdate, // ★ Destructure onPersonaUpdate
 }) => {
   const variants = {
     hidden: { opacity: 0, y: 10, scale: 0.98 },
@@ -1129,8 +1192,15 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
     exit: { opacity: 0, y: -10, scale: 0.98 },
   };
 
-  const selectedPersona = personas.find(p => p.id === selectedPersonaId);
+  // ★ Variant for loading text exit animation
+  const loadingExitVariant = {
+    opacity: 0,
+    scale: 0.85, // Shrink a bit more
+    y: 5,       // Move slightly down
+    transition: { duration: 0.3, ease: "easeIn" } // Faster exit
+  };
 
+  const selectedPersona = personas.find(p => p.id === selectedPersonaId);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
@@ -1202,23 +1272,28 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
       case 'results_dashboard': return <ResultsDashboardView personas={personas} onViewPersonaList={onViewPersonaList} />;
       case 'analysis_result': return analysisType ? <AnalysisResultView analysisType={analysisType} personas={personas} onViewPersonaList={onViewPersonaList} /> : null;
       case 'persona_list': return <PersonaListView personas={personas} onSelectPersona={onSelectPersona} onBackToDashboard={onBackToDashboard}/>;
-      case 'persona_detail': return <PersonaDetailView persona={selectedPersona ?? null} onBackToList={onBackToList} />;
+      case 'persona_detail': 
+          return <PersonaDetailView 
+                      persona={selectedPersona ?? null} 
+                      onBackToList={onBackToList} 
+                      onSaveChanges={onPersonaUpdate} // ★ Pass onPersonaUpdate
+                  />;
       case 'error': return <ErrorView />;
       default: return null;
     }
   };
 
   return (
-    // ★ Add relative positioning and mask for bottom fade
     <div 
-      className="flex-grow overflow-hidden bg-white relative" 
+      // ★ Add h-full to ensure it takes the full height of its ResizablePanel
+      className="flex-grow overflow-hidden bg-white relative h-full" 
       style={{
-        maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)', // Fade out bottom
+        maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
         WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
       }}
     >
-      {/* Add padding bottom to prevent content from being cut off by the mask */}
-      <div className="absolute inset-0 overflow-auto pb-10"> {/* Added pb-10 */}
+      {/* ★ Ensure this div also takes full height for proper scroll and padding */}
+      <div className="absolute inset-0 overflow-auto pb-10 h-full">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentView + (currentView === 'analysis_result' ? analysisType : '') + (currentView === 'persona_detail' ? selectedPersonaId : '')} 
@@ -1227,10 +1302,9 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
             animate="visible"
             exit="exit"
             transition={{ duration: 0.35, ease: "easeInOut" }}
-            // ★ Remove flex centering, content should align normally
-            className="h-full" // Ensure motion div takes full height for padding
+            className="h-full" 
           >
-            {renderViewContent()}
+            {renderViewContent()} 
           </motion.div>
         </AnimatePresence>
       </div>
@@ -1676,28 +1750,57 @@ export function PersonaSimulationPage() {
     handleSendMessage(request, 'normal'); // Explicitly pass 'normal' mode
   };
 
+  // ★ Handler for updating a persona (mock)
+  const handlePersonaUpdate = (updatedPersona: AIPersona) => {
+    console.log("Persona updated (mock):", updatedPersona);
+    // In a real app, you would update the persona in the resultSets state
+    setResultSets(prevResultSets => {
+        const newResultSets = [...prevResultSets];
+        const currentSet = newResultSets[displayedResultSetIndex];
+        if (currentSet) {
+            const personaIndex = currentSet.personas.findIndex(p => p.id === updatedPersona.id);
+            if (personaIndex !== -1) {
+                currentSet.personas[personaIndex] = updatedPersona;
+            }
+        }
+        return newResultSets;
+    });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-100 overflow-hidden relative"> {/* ★ Added relative positioning */}
-      <DynamicContentArea
-        currentView={currentView}
-        isLoading={isLoading}
-        onSubmitRequest={handleSubmitInitialRequest}
-        personas={resultSets[displayedResultSetIndex]?.personas ?? []}
-        userRequestForConfirmation={currentRequest}
-        aiSuggestion={aiSuggestion}
-        onSettingsChange={handleSettingsChange}
-        analysisType={currentAnalysisType}
-        selectedPersonaId={selectedPersonaId}
-        onSelectPersona={handleSelectPersona}
-        onBackToList={handleBackToList}
-        onBackToDashboard={handleBackToDashboard}
-        onViewPersonaList={handleViewPersonaList}
-      />
-      <ChatHistoryArea chatHistory={chatHistory} />
-      <AI_Prompt onSendMessage={handleSendMessage} isLoading={isLoading} />
+      {/* ★ Wrap content in ResizablePanelGroup */}
+      <ResizablePanelGroup direction="vertical" className="min-h-0 flex-1"> {/* min-h-0 and flex-1 are important for proper sizing */}
+        <ResizablePanel defaultSize={65} minSize={30} className="min-h-0"> {/* Added min-h-0 */}
+          <DynamicContentArea
+            currentView={currentView}
+            isLoading={isLoading}
+            onSubmitRequest={handleSubmitInitialRequest}
+            personas={resultSets[displayedResultSetIndex]?.personas ?? []}
+            userRequestForConfirmation={currentRequest}
+            aiSuggestion={aiSuggestion}
+            onSettingsChange={handleSettingsChange}
+            analysisType={currentAnalysisType}
+            selectedPersonaId={selectedPersonaId}
+            onSelectPersona={handleSelectPersona}
+            onBackToList={handleBackToList}
+            onBackToDashboard={handleBackToDashboard}
+            onViewPersonaList={handleViewPersonaList}
+            onPersonaUpdate={handlePersonaUpdate}
+          />
+        </ResizablePanel>
+        {/* ★ Remove background classes from ResizableHandle */}
+        <ResizableHandle withHandle />
+        {/* ★ Increase minSize for the bottom panel, adjust inner div flex behavior */}
+        <ResizablePanel defaultSize={35} minSize={25} className="min-h-0 flex flex-col"> {/* Increased minSize, added flex flex-col */}
+          {/* Adjust div to allow chat history to shrink but input to stay fixed height */}
+          <ChatHistoryArea chatHistory={chatHistory} /> {/* Let ChatHistoryArea manage its own scroll/flex */}
+          <AI_Prompt onSendMessage={handleSendMessage} isLoading={isLoading} /> {/* AI_Prompt should have a fixed or min-height inherently */}
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
-      {/* ★ Fluid Menu positioned at top left */}
-      <div className="absolute top-8 left-8 z-50"> {/* Changed positioning */}
+      {/* Fluid Menu (fixed position, outside of resizable group) */}
+      <div className="absolute top-8 left-8 z-50">
         <MenuContainer>
           <MenuItem
             icon={
