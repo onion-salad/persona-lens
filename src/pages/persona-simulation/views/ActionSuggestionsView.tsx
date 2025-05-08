@@ -63,14 +63,14 @@ const ActionSuggestionsView: React.FC<ActionSuggestionsViewProps> = ({
               {groupedSuggestions[category].map((suggestion) => (
                 <Card key={suggestion.id} className="shadow-sm hover:shadow-md transition-shadow duration-200 bg-white">
                   <CardHeader className="pb-3 pt-4 px-5">
-                    <CardTitle className="text-base font-medium text-gray-900">{suggestion.suggestion}</CardTitle>
+                    <CardTitle className="text-base font-medium text-gray-900">{suggestion.title}</CardTitle>
                   </CardHeader>
                   <CardContent className="px-5 pb-4 space-y-3">
-                    <p className="text-sm text-gray-600">{suggestion.rationale}</p>
-                    {suggestion.relatedPersonaIds.length > 0 && (
+                    <p className="text-sm text-gray-600">{suggestion.description}</p>
+                    {suggestion.relevantPersonaIds && suggestion.relevantPersonaIds.length > 0 && (
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-gray-500 mr-1">関連ペルソナ:</span>
-                        {suggestion.relatedPersonaIds.map((personaId) => {
+                        {suggestion.relevantPersonaIds.map((personaId) => {
                           const persona = personasMap.get(personaId);
                           return persona ? (
                             <TooltipProvider key={personaId} delayDuration={100}>

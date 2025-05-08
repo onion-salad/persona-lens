@@ -1597,48 +1597,54 @@ export function PersonaSimulationPage() {
           // --- Action Handlers --- 
           if (action === 'Confirm Generation' && payload?.suggestion) {
             console.log("[Action Branch] Confirm Generation with suggestion:", payload.suggestion);
-            if (!currentSettings) {
-                aiResponse = { id: aiResponseId, role: 'ai', content: 'エラー: 設定がされていません。' };
+
+            // currentSettings ではなく payload.suggestion から設定値を取得
+            const settingsFromPayload = {
+                count: payload.suggestion.selectedPersonaCount,
+                level: payload.suggestion.detailLevel,
+                attributes: payload.suggestion.attributes, // 属性も取得
+                requestContext: payload.suggestion.requestContext // 元のリクエストも取得
+            };
+
+            if (!settingsFromPayload.count || !settingsFromPayload.level) { // count が 0 の可能性も考慮
+                aiResponse = { id: aiResponseId, role: 'ai', content: 'エラー: ペルソナ数または詳細度の設定が無効です。' };
                 setIsLoading(false);
-                console.log("isLoading set to false due to missing currentSettings in Confirm Generation");
-                // No view change, stay on confirmation or error
+                console.log("isLoading set to false due to invalid settings in payload for Confirm Generation");
             } else {
-                // Add system message immediately before generation starts
                 const generationStartMsg: ChatMessage = {
                     id: `sys-genstart-${messageTimestamp}`,
                     role: 'system',
-                    content: `設定を承認しました。ペルソナ${currentSettings.count}体 (詳細度: ${detailLevelLabels[currentSettings.level]}) の生成を開始します...`,
+                    content: `設定を承認しました。ペルソナ${settingsFromPayload.count}体 (詳細度: ${detailLevelLabels[settingsFromPayload.level]}) の生成を開始します...`,
                 };
-                // Add this message *before* the setTimeout and setIsLoading(true) for generation
-                // This avoids it being potentially missed if the user clicks away fast
                 setChatHistory(prev => addUniqueMessage(prev, generationStartMsg));
 
-                // Set isLoading true specifically for the generation process
                 setIsLoading(true);
                 console.log("isLoading set to true for Confirm Generation");
-                setCurrentView('generating'); // Move to generating view
+                setCurrentView('generating');
                 viewChangedInternally = true;
 
-                // Simulate generation
                 setTimeout(() => {
                   try {
-                    const personas: AIPersona[] = Array.from({ length: currentSettings.count }).map((_, i) => ({
+                    const personas: AIPersona[] = Array.from({ length: settingsFromPayload.count }).map((_, i) => ({
                         id: `persona-${Date.now()}-${i}`,
-                        name: `ペルソナ ${i + 1} (${detailLevelLabels[currentSettings.level]})`,
-                        details: `これはペルソナ${i + 1}の詳細です。要望「${payload.suggestion.requestContext?.substring(0,30) || 'N/A'}...」に基づいており、${payload.suggestion.attributes}の特性を持ちます。詳細度は「${detailLevelLabels[currentSettings.level]}」です。シミュレーションへの貢献が期待されます。`,
-                        response: `要望「${payload.suggestion.requestContext?.substring(0,30) || 'N/A'}...」に対するペルソナ${i + 1}の初期回答です。私の視点では... (ダミー応答)`
+                        name: `ペルソナ ${i + 1} (${detailLevelLabels[settingsFromPayload.level]})`,
+                        details: `これはペルソナ${i + 1}の詳細です。要望「${settingsFromPayload.requestContext?.substring(0,30) || 'N/A'}...」に基づいており、${settingsFromPayload.attributes}の特性を持ちます。詳細度は「${detailLevelLabels[settingsFromPayload.level]}」です。シミュレーションへの貢献が期待されます。`,
+                        response: `要望「${settingsFromPayload.requestContext?.substring(0,30) || 'N/A'}...」に対するペルソナ${i + 1}の初期回答です。私の視点では... (ダミー応答)`
                     }));
 
                     const newResultSet: ResultSet = {
                         id: `rs-${Date.now()}`,
-                        title: `初期結果 (${currentSettings.count}人)`,
+                        title: `初期結果 (${settingsFromPayload.count}人)`,
                         personas: personas,
                     };
-                    setResultSets(prev => [...prev, newResultSet]);
-                    setDisplayedResultSetIndex(resultSets.length); // Display the new set (index will be current length before adding)
+                    setResultSets(prev => {
+                        const newSets = [...prev, newResultSet];
+                        setDisplayedResultSetIndex(newSets.length - 1); // 新しいセットのインデックスは newSets.length - 1
+                        return newSets;
+                    });
 
                     const aiResponseAfterGeneration: ChatMessage = {
-                        id: `ai-gencomplete-${messageTimestamp}`, // Use a unique ID for this response
+                        id: `ai-gencomplete-${messageTimestamp}`,
                         role: 'ai',
                         content: `${personas.length}人のペルソナ生成が完了しました。結果ダッシュボードを表示します。\n分析オプションを選択してください。`,
                         actions: [
@@ -1654,64 +1660,91 @@ export function PersonaSimulationPage() {
                     setCurrentView('results_dashboard');
                   } catch (error) {
                     console.error("Error during persona generation in setTimeout:", error);
-                    // 必要であればエラーメッセージをチャットに追加
                     const errorMsg: ChatMessage = {
                         id: `err-gen-${Date.now()}`,
                         role: 'system',
                         content: 'ペルソナ生成中に内部エラーが発生しました。'
                     };
                     setChatHistory(prev => addUniqueMessage(prev, errorMsg));
-                    setCurrentView('error'); // エラービューに遷移させるなど
+                    setCurrentView('error');
                   } finally {
-                    setIsLoading(false); // Generation complete or failed
+                    setIsLoading(false);
                     console.log("isLoading set to false after generation attempt in Confirm Generation (finally block of setTimeout)");
                   }
-                }, 2500 + Math.random() * 1000); // Simulate delay
+                }, 2500 + Math.random() * 1000);
             }
           } else if (action === 'Request Modification') {
             // ... (existing Request Modification logic) ...
+            // ここにも setIsLoading(false) が必要になる可能性あり
+            setIsLoading(false); // 仮で追加
           } else if (action === '感情分析 を実行' && payload?.personas) {
-            // ... (existing Sentiment Analysis logic) ...
+            console.log("[Action Branch] 感情分析 を実行 with personas:", payload.personas);
+            if (payload.personas && payload.personas.length > 0) {
+                setCurrentAnalysisType('感情分析');
+                aiResponse = { id: aiResponseId, role: 'system', content: '感情分析結果を表示します。' };
+                nextView = 'analysis_result'; 
+                viewChangedInternally = true; 
+                setCurrentView('analysis_result'); 
+            } else {
+                aiResponse = { id: aiResponseId, role: 'ai', content: '分析対象のペルソナがいません。' };
+                nextView = currentView;
+            }
+            setIsLoading(false);
           } else if (action === 'キーワード抽出 を実行' && payload?.personas) {
-            // ... (existing Keyword Extraction logic) ...
-          } else if (action === 'View Persona List') {
-            // ... (existing View Persona List logic) ...
+            console.log("[Action Branch] キーワード抽出 を実行 with personas:", payload.personas);
+            if (payload.personas && payload.personas.length > 0) {
+                setCurrentAnalysisType('キーワード抽出');
+                aiResponse = { id: aiResponseId, role: 'system', content: 'キーワード抽出結果を表示します。' };
+                nextView = 'analysis_result';
+                viewChangedInternally = true;
+                setCurrentView('analysis_result');
+            } else {
+                aiResponse = { id: aiResponseId, role: 'ai', content: '分析対象のペルソナがいません。' };
+                nextView = currentView;
+            }
+            setIsLoading(false);
           } else if (action === 'View Persona List') {
               console.log("[Action Branch] View Persona List");
               if (resultSets.length > 0 && resultSets[displayedResultSetIndex]?.personas.length > 0) {
                   aiResponse = { id: `sys-view-list-${messageTimestamp}`, role: 'system', content: `ペルソナ一覧を表示します。` }; 
-                  handleViewPersonaList(); 
-                  nextView = 'persona_list';
+                  // handleViewPersonaList(); // setCurrentView を直接呼び出すため、これは不要になるか、setCurrentView のみを担当する
+                  setViewBeforeList(currentView); // 保存
+                  setCurrentView('persona_list');
+                  nextView = 'persona_list'; // nextView も更新
                   viewChangedInternally = true;
               } else {
                   aiResponse = { id: aiResponseId, role: 'ai', content: `表示するペルソナリストがありません。先にペルソナを生成してください。` };
                   nextView = currentView;
               }
-              setIsLoading(false);
+              setIsLoading(false); // ★ Add this line
           } else if (action === 'View Relationship Diagram') {
               console.log("[Action Branch] View Relationship Diagram");
               if (resultSets.length > 0 && resultSets[displayedResultSetIndex]?.personas.length > 0) {
                  aiResponse = { id: `sys-view-rel-${messageTimestamp}`, role: 'system', content: `ペルソナ関係図を表示します。` }; 
-                 handleViewRelationshipDiagram();
-                 nextView = 'relationship_diagram';
+                 // handleViewRelationshipDiagram(); // setCurrentView を直接呼び出す
+                 setViewBeforeList(currentView);
+                 setCurrentView('relationship_diagram');
+                 nextView = 'relationship_diagram'; // nextView も更新
                  viewChangedInternally = true;
               } else {
                   aiResponse = { id: aiResponseId, role: 'ai', content: `関係図を表示するペルソナがいません。` };
                   nextView = currentView;
               }
-              setIsLoading(false);
+              setIsLoading(false); // ★ Add this line
           } else if (action === 'View Action Suggestions') {
               console.log("[Action Branch] View Action Suggestions");
               if (resultSets.length > 0 && resultSets[displayedResultSetIndex]?.personas.length > 0) {
                  aiResponse = { id: `sys-view-sugg-${messageTimestamp}`, role: 'system', content: `改善アクション提案を表示します。` }; 
-                 handleViewActionSuggestions();
-                 nextView = 'action_suggestions';
+                 // handleViewActionSuggestions(); // setCurrentView を直接呼び出す
+                 setViewBeforeList(currentView);
+                 setCurrentView('action_suggestions');
+                 nextView = 'action_suggestions'; // nextView も更新
                  viewChangedInternally = true;
               } else {
                   aiResponse = { id: aiResponseId, role: 'ai', content: `改善提案の元となるペルソナがいません。` };
                   nextView = currentView;
               }
-              setIsLoading(false);
+              setIsLoading(false); // ★ Add this line
           // ★ Add handler for Deep Dive request
           } else if (action === 'Request Deep Dive' && payload?.targetMessageId) {
               console.log(`[Action Branch] Request Deep Dive for message ID: ${payload.targetMessageId}`);
@@ -1900,40 +1933,9 @@ export function PersonaSimulationPage() {
       const errorMsg: ChatMessage = { id: `err-${Date.now()}`, role: 'system', content: '処理中にエラーが発生しました。' };
       setChatHistory(prev => addUniqueMessage(prev, errorMsg));
       setCurrentView('error');
-      // Ensure isLoading is false on error (handled by finally now)
-      // setIsLoading(false); 
+      setIsLoading(false); // ★ Add this line to ensure isLoading is false on error
       // console.error("Caught error. isLoading set to false.");
-    } finally {
-        // ★ Simplified isLoading logic at the end using finally
-        // Check the *intended* next view after processing, or the current view if no change occurred
-        const resultingView = (nextView !== currentView && !viewChangedInternally) ? nextView : currentView;
-        
-        // Check if the GENERATION process specifically is supposed to be running
-        const isGeneratingAction = isActionClick && modeOrAction.startsWith('Action: Confirm Generation');
-        const shouldGenerationKeepLoading = isGeneratingAction && resultingView === 'generating';
-
-        if (!shouldGenerationKeepLoading) {
-            // If the generation process isn't the one actively keeping it loading,
-            // ensure loading is false after a short delay.
-            setTimeout(() => {
-                // Check isLoading again before setting to false, in case generation finished *very* quickly
-                // This might be overly cautious, but prevents race conditions
-                setIsLoading(loading => {
-                    // If it's still true AND not because generation *should* be running, set to false
-                    if (loading && !(isGeneratingAction && currentView === 'generating')) {
-                         console.log(`isLoading set to false in finally block (view: ${resultingView})`);
-                         return false;
-                    }
-                    // Otherwise, keep the current state (might have been set to false by generation's finally)
-                    return loading;
-                });
-            }, 150); // Slightly longer delay to ensure state updates propagate
-        } else {
-            // If the view is 'generating' specifically due to the Confirm Generation action,
-            // the generation process itself is responsible for setting isLoading = false.
-            console.log("isLoading remains true as the generation action is in progress.");
-        }
-    }
+    } // ★ Remove the entire finally block that was here
   }; // End of handleSendMessage
 
   // Initial request submission (no changes needed here)
