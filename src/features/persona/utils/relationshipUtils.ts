@@ -1,6 +1,6 @@
 // Placeholder for relationship calculation utilities
 
-import { type AIPersona } from '../../pages/persona-simulation/page'; // Adjust path if page.tsx exports this type, or define locally
+import { type AIPersona } from '@/pages/persona-simulation/page'; // Adjust path if page.tsx exports this type, or define locally
 import { type Node, type Edge } from 'reactflow';
 
 // ストップワードのリスト (関係性算出時に無視する一般的な単語)
@@ -36,6 +36,7 @@ function extractKeywords(details: string): Set<string> {
 // Define a more specific type for node data if needed
 export interface PersonaNodeData {
   label: string;
+  emotionScore?: number; // ★ 感情スコア (1-10、オプショナル)
   // Potentially other persona info for display or interaction
 }
 
@@ -53,12 +54,35 @@ export function calculatePersonaRelationships(
     return { nodes: [], edges: [] };
   }
 
-  const nodes: Node<PersonaNodeData>[] = personas.map((persona) => ({
-    id: persona.id,
-    data: { label: persona.name },
-    position: { x: Math.random() * 700 - 100 , y: Math.random() * 500 - 100 }, // Spread out nodes a bit
-    type: 'default', // Or a custom node type name
-  }));
+  const DIAGRAM_WIDTH = 700; // 関係図の幅（仮）
+  const DIAGRAM_HEIGHT = 500; // 関係図の高さ（仮）
+  const PADDING_X = 50;
+  const PADDING_Y = 50;
+
+  const nodes: Node<PersonaNodeData>[] = personas.map((persona) => {
+    const xPos = Math.random() * (DIAGRAM_WIDTH - 2 * PADDING_X) + PADDING_X;
+    let yPos;
+
+    if (persona.emotionScore !== undefined && persona.emotionScore >= 1 && persona.emotionScore <= 10) {
+      // 感情スコアをY座標にマッピング (スコア10が上、スコア1が下)
+      // (10 - emotionScore) / 9 は、スコアを 0 (スコア10の時) から 1 (スコア1の時) の範囲に正規化
+      const normalizedEmotion = (10 - persona.emotionScore) / 9;
+      yPos = PADDING_Y + normalizedEmotion * (DIAGRAM_HEIGHT - 2 * PADDING_Y);
+    } else {
+      // 感情スコアがない場合は中央付近にランダム配置
+      yPos = DIAGRAM_HEIGHT / 2 + (Math.random() * (DIAGRAM_HEIGHT / 4) - (DIAGRAM_HEIGHT / 8)); // より中央に集めるように調整
+    }
+
+    return {
+      id: persona.id,
+      data: {
+        label: persona.name,
+        emotionScore: persona.emotionScore, 
+      },
+      position: { x: xPos, y: yPos },
+      type: 'default', // Or a custom node type name
+    };
+  });
 
   const edges: Edge[] = [];
   const personaKeywordsCache: Map<string, Set<string>> = new Map();

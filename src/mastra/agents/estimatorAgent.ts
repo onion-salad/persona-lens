@@ -19,5 +19,5 @@ export const estimatorAgent = new Agent({
   ]
 }
 ` ,
-  model: openai("gpt-4o-mini"),
+  model: openai("gpt-4o"),
 }); 

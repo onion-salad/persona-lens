@@ -41,6 +41,12 @@ import {
   Menu as MenuIcon,
   X,
   Home,
+  LayoutDashboard,
+  GitMerge,
+  ListChecks,
+  X as XIconImport,
+  Home as HomeIconImport,
+  Sparkles as SparklesIconImport,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
@@ -56,15 +62,29 @@ import { MenuItem, MenuContainer } from "@/components/ui/fluid-menu"; // ★ Imp
 import { useNavigate } from 'react-router-dom'; // ★ Import useNavigate
 import { TextShimmerWave } from "@/components/ui/text-shimmer-wave"; // ★ Import TextShimmerWave
 import { cn } from "@/lib/utils"; // Import cn for conditional classes
+import { SimulationViewVerticalMenu } from './components/SimulationViewTabs'; // ★ 新しい縦型メニューをインポート (ファイル名はそのまま SimulationViewTabs.tsx を使用)
+import { ExpertProposal } from "@/mastra/schemas/expertProposalSchema"; // ExpertProposal全体をインポート
+// import { type AIPersona } from './types'; // AIPersonaを別ファイルからインポート (page.tsx内の定義を移動した場合)
 
-// 仮の型定義
-// ★ Export AIPersona type
+// ProposalSummary 型を ExpertProposal から抽出
+type ProposalSummary = ExpertProposal['summary'];
+
+// SimulationView 型定義を確認・修正
+
+
+// 仮の型定義 (AIPersona) - page.tsx内に定義する場合
+// ★ Enable this type definition
 export type AIPersona = {
   id: string;
   name: string;
-  details: string; // 詳細情報
-  response: string; // Step1の要望への回答
+  details: string; 
+  response: string; 
+  emotionScore?: number; 
+  attributes?: string; 
+  profile?: string;
 };
+
+// (もし ./types に移動した場合は上記コメントアウト)
 
 type AISuggestion = {
   personaCountOptions: number[];
@@ -113,7 +133,7 @@ type ChatAction = {
 };
 
 // Define possible views for the dynamic content area
-type SimulationView =
+export type SimulationView =
   | 'initial'           // Welcome message, initial prompt
   | 'request_input'     // User inputs the simulation request (explicit step if needed)
   | 'confirmation'      // AI shows suggestions, user confirms/adjusts
@@ -125,6 +145,14 @@ type SimulationView =
   | 'relationship_diagram' // ★ New view for relationship diagram
   | 'action_suggestions' // ★ New view for action suggestions
   | 'error';            // Error state
+
+// ★ メニュー項目として表示するビューを定義
+const mainSimulationMenuItems: { view: SimulationView; label: string; icon?: React.ElementType }[] = [
+  { view: 'results_dashboard', label: 'ダッシュボード', icon: LayoutDashboard },
+  { view: 'persona_list', label: 'ペルソナ一覧', icon: Users },
+  { view: 'relationship_diagram', label: '関係図', icon: GitMerge },
+  { view: 'action_suggestions', label: '改善アクション', icon: ListChecks },
+];
 
 // 洗練された Step 1: 要望入力
 const Step1_Input: React.FC<{ onSubmit: (request: string) => void }> = ({ onSubmit }) => {
@@ -447,8 +475,8 @@ interface DynamicContentAreaProps {
   currentView: SimulationView;
   isLoading: boolean; // Added isLoading to show loading indicator
   onSubmitRequest: (request: string) => void;
-  personas: AIPersona[];
-  personasMap: Map<string, AIPersona>; // ★ Added personasMap
+  experts: AIPersona[]; // 新しく追加 (ストアから渡される)
+  proposalSummary: ProposalSummary | null; // 新しく追加 (ストアから渡される)
   userRequestForConfirmation: string | null;
   aiSuggestion: AISuggestion | null;
   onSettingsChange: (newSettings: { count: number; level: DetailLevel }) => void;
@@ -624,66 +652,40 @@ const ErrorView = () => <div className="p-4 text-red-600 text-center">エラー�
 
 // --- ResultsDashboardView (Re-implementing based on old PersonaDashboard) ---
 interface ResultsDashboardViewProps {
-  personas: AIPersona[];
+  experts: AIPersona[]; // experts を受け取る
+  summary: ProposalSummary | null; // summary を受け取る
   onViewPersonaList: () => void; // Add callback to navigate to list
 }
-const ResultsDashboardView: React.FC<ResultsDashboardViewProps> = ({ personas, onViewPersonaList }) => {
-   const totalPersonas = personas.length;
 
-   const allWords = personas.flatMap(p => (p.response + ' ' + p.details).split(/\s+/))
-       .map(word => word.toLowerCase().replace(/[.,!?;:]/g, ''))
-       .filter(word => word.length > 3 && !/^[0-9]+$/.test(word));
-   const wordCounts = allWords.reduce((acc, word) => {
-       acc[word] = (acc[word] || 0) + 1;
-       return acc;
-   }, {} as Record<string, number>);
-   const topKeywords = Object.entries(wordCounts)
-       .sort(([, a], [, b]) => b - a)
-       .slice(0, 12); // Show top 12 keywords
+// ★ Update ResultsDashboardView implementation
+const ResultsDashboardView: React.FC<ResultsDashboardViewProps> = ({ experts, summary, onViewPersonaList }) => {
+  const expertCount = experts.length;
 
+  // 簡単なダッシュボード表示 (仮)
   return (
-    <div className="h-full overflow-auto bg-white p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-5">
-         <div className="flex items-center gap-3">
-            <BarChart3 className="w-6 h-6 text-gray-500" />
-            <h2 className="text-xl font-semibold text-gray-800">シミュレーション結果概要</h2>
-         </div>
-          {totalPersonas > 0 && (
-             <Button variant="outline" size="sm" onClick={onViewPersonaList}>ペルソナ一覧を見る</Button>
-          )}
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-         <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-           <CardHeader className="pb-3 pt-4 px-5">
-             <CardDescription className="text-xs font-medium text-gray-500 uppercase tracking-wider">総ペルソナ数</CardDescription>
-             <CardTitle className="text-3xl font-bold text-gray-900 mt-1">{totalPersonas}</CardTitle>
-           </CardHeader>
-         </Card>
-         <Card className="bg-gray-50 border-gray-200 border-dashed flex flex-col items-center justify-center min-h-[90px]">
-             <p className="text-sm font-medium text-gray-400 mb-1">感情分析 (近日実装)</p>
-             <p className="text-xs text-gray-400">ポジティブ/ネガティブ傾向</p>
-         </Card>
-         <Card className="bg-gray-50 border-gray-200 border-dashed flex flex-col items-center justify-center min-h-[90px]">
-             <p className="text-sm font-medium text-gray-400 mb-1">属性分布 (近日実装)</p>
-              <p className="text-xs text-gray-400">年齢・地域など</p>
-         </Card>
-      </div>
-       <div className="pt-2">
-         <h3 className="text-base font-semibold text-gray-700 mb-3">注目キーワード (上位12件)</h3>
-         {totalPersonas > 0 ? (
-           <div className="flex flex-wrap gap-2">
-             {topKeywords.map(([word, count]) => (
-               <Badge key={word} variant="outline" className="px-2.5 py-0.5 text-xs font-medium bg-white border-gray-300 text-gray-700 shadow-xs">
-                 {word} <span className="ml-1.5 text-gray-400">({count})</span>
-               </Badge>
-             ))}
-             {topKeywords.length === 0 && <p className="text-xs text-gray-500">キーワードを抽出できませんでした。</p>}
-           </div>
-         ) : (
-           <p className="text-xs text-gray-500">ペルソナデータがありません。</p>
-         )}
-       </div>
-    </div>
+    <Card className="w-full max-w-4xl bg-white transition-all duration-300 border-none">
+      <CardHeader>
+        <CardTitle className="text-xl font-semibold text-gray-800">提案結果ダッシュボード</CardTitle>
+        {summary && (
+          <CardDescription>
+            {summary.persona_count}名の専門家候補が見つかりました。主な属性: {summary.main_attributes}
+          </CardDescription>
+        )}
+      </CardHeader>
+      <CardContent>
+        <p className="mb-4 text-gray-600">現在 {expertCount} 名の専門家が表示されています。</p>
+        {/* ここにグラフや統計情報を追加 */} 
+        <div className="p-6 bg-gray-50 rounded-lg text-center">
+          <p className="text-gray-500">(グラフ表示エリア)</p>
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-end">
+        <Button onClick={onViewPersonaList} variant="outline" className="flex items-center space-x-2">
+          <List className="w-4 h-4"/>
+          <span>ペルソナ一覧へ</span>
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 
@@ -1270,8 +1272,8 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
   currentView,
   isLoading,
   onSubmitRequest,
-  personas,
-  personasMap, // ★ Destructure personasMap
+  experts, // 受け取る
+  proposalSummary, // 受け取る
   userRequestForConfirmation,
   aiSuggestion,
   onSettingsChange,
@@ -1302,7 +1304,7 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
     transition: { duration: 0.3, ease: "easeIn" } // Faster exit
   };
 
-  const selectedPersona = personas.find(p => p.id === selectedPersonaId);
+  const selectedPersona = experts.find(p => p.id === selectedPersonaId);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
@@ -1370,12 +1372,17 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
     switch (currentView) {
       case 'initial': return <WelcomeView />;
       case 'request_input': return <RequestInputView onSubmit={onSubmitRequest} />;
-      case 'confirmation': return userRequestForConfirmation && aiSuggestion ? <ConfirmationView userRequest={userRequestForConfirmation} suggestion={aiSuggestion} onSettingsChange={onSettingsChange} /> : null;
-      case 'results_dashboard': return <ResultsDashboardView personas={personas} onViewPersonaList={onViewPersonaList} />;
-      case 'analysis_result': return analysisType ? <AnalysisResultView analysisType={analysisType} personas={personas} onViewPersonaList={onViewPersonaList} /> : null;
+      case 'confirmation': return aiSuggestion && userRequestForConfirmation ? <ConfirmationView userRequest={userRequestForConfirmation} suggestion={aiSuggestion} onSettingsChange={onSettingsChange} /> : null;
+      case 'generating':
+        // Use currentSettings if available, otherwise fallback or show generic message
+        const count = aiSuggestion?.selectedPersonaCount ?? 0;
+        const level = aiSuggestion?.detailLevel ?? 'medium'; 
+        return <GeneratingView count={count} level={level} />;
+      case 'results_dashboard': return <ResultsDashboardView experts={experts} summary={proposalSummary} onViewPersonaList={onViewPersonaList} />;
+      case 'analysis_result': return analysisType ? <AnalysisResultView analysisType={analysisType} personas={experts} onViewPersonaList={onViewPersonaList} /> : null;
       case 'persona_list': 
         return <PersonaListView 
-                  personas={personas} 
+                  personas={experts} 
                   onSelectPersona={onSelectPersona} 
                   onBackToDashboard={onBackToDashboard}
                   selectedPersonaIds={selectedPersonaIdsForQuery}
@@ -1392,18 +1399,25 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
       // ★ Add case for relationship diagram
       case 'relationship_diagram':
         return <PersonaRelationshipDiagramView 
-                  personas={personas} 
+                  personas={experts} 
                   onNodeClick={(_event: React.MouseEvent, node: ReactFlowNode<PersonaNodeData>) => onRelationshipNodeClick(node.id)}
                 />;
       // ★ Add case for action suggestions view
       case 'action_suggestions':
-        const suggestions = generateMockActionSuggestions(personas);
+        // experts を渡す (コンポーネント側で処理)
+        // return <ActionSuggestionsView personas={experts} />;
+        // ↓ 修正
+        const dummySuggestions: ActionSuggestion[] = [
+          { id: 'sugg1', category: 'UI/UX改善', title: 'ナビゲーションの改善', description: 'グローバルナビゲーションの項目を見直し、より直感的な操作を可能にします。', estimatedImpact: '中', requiredEffort: '中', relevantPersonaIds: experts.length > 0 ? [experts[0].id] : [] },
+          { id: 'sugg2', category: '機能追加', title: '検索機能の強化', description: '高度なフィルタリングオプションを追加し、目的の情報へ素早くアクセスできるようにします。', estimatedImpact: '中', requiredEffort: '中', relevantPersonaIds: experts.length > 1 ? [experts[1].id] : [] },
+        ];
+        const currentPersonasMap = new Map(experts.map(p => [p.id, p]));
         return <ActionSuggestionsView 
-                  suggestions={suggestions}
-                  personasMap={personasMap} 
-                  onViewPersona={onRelationshipNodeClick} // Reuse node click handler for persona detail
-                  onBack={onBackToDashboard} // Reuse dashboard back handler
-                />;
+                 suggestions={dummySuggestions} 
+                 personasMap={currentPersonasMap} 
+                 onViewPersona={onRelationshipNodeClick} // 既存のハンドラーを流用 (詳細表示用)
+                 onBack={onBackToDashboard} // 既存のハンドラーを流用
+               />;
       case 'error': return <ErrorView />;
       default: return null;
     }
@@ -1440,7 +1454,17 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
 
 // --- メインページコンポーネント --- 
 export function PersonaSimulationPage() {
-  const [currentView, setCurrentView] = useState<SimulationView>('initial');
+  // ストアから状態とアクションを取得
+  const {
+    experts, // 新しく追加
+    setExperts, // 新しく追加
+    proposalSummary, // 新しく追加
+    setProposalSummary, // 新しく追加
+    currentView,
+    setCurrentView,
+    // ... (他のストアの状態/アクション)
+  } = useSimulationStore();
+
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [resultSets, setResultSets] = useState<ResultSet[]>([]); 
@@ -1452,6 +1476,7 @@ export function PersonaSimulationPage() {
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null); // For detail view
   const [viewBeforeList, setViewBeforeList] = useState<SimulationView>('results_dashboard');
   const navigate = useNavigate(); // ★ Initialize useNavigate
+  const [isPersonaGenerated, setIsPersonaGenerated] = useState(false); // ★ ペルソナ生成済みかを管理するフラグ
 
   // ★ State for selected persona IDs for querying
   const [selectedPersonaIdsForQuery, setSelectedPersonaIdsForQuery] = useState<string[]>([]);
@@ -1640,6 +1665,7 @@ export function PersonaSimulationPage() {
                     setResultSets(prev => {
                         const newSets = [...prev, newResultSet];
                         setDisplayedResultSetIndex(newSets.length - 1); // 新しいセットのインデックスは newSets.length - 1
+                        setIsPersonaGenerated(true); // ★ ペルソナ生成完了フラグを立てる
                         return newSets;
                     });
 
@@ -1786,157 +1812,105 @@ export function PersonaSimulationPage() {
           }
       // --- BRANCH 2: Handle Non-Action Messages ... (existing logic remains) ...
       } else if (!isActionClick) {
-          console.log(`[View Branch] Processing text message in view: ${currentView}, Mode: ${currentMode}`);
-
-          // --- Sub-Branch 2.1: Normal Mode --- 
+          console.log(`[Message Branch] Processing mode: ${currentMode}`);
+          // currentMode が 'normal' の場合にバックエンドAPIを呼び出す
           if (currentMode === 'normal') {
-              if (currentView === 'initial') {
-                  console.log("Processing initial user request (Normal Mode).");
-                  setCurrentRequest(message);
-                  // --- Generate Suggestion --- 
-                  let attributes = "属性: 標準セット";
-                  const reqLower = message.toLowerCase();
-                  let contextFocus = "標準"; 
-                  if (reqLower.includes('ui') || reqLower.includes('デザイン')) { attributes = "属性: UI/UX重視"; contextFocus = "UI/UX"; }
-                  else if (reqLower.includes('価格') || reqLower.includes('コスト')) { attributes = "属性: 価格感度 高"; contextFocus = "価格"; }
-                  else if (reqLower.includes('学生') || reqLower.includes('若者')) { attributes = "属性: 若年層中心"; contextFocus = "若年層"; }
+            console.log("[Message Branch] Mode is 'normal'. Calling backend API...");
+            try {
+              const response = await fetch('/api/generate-expert-proposal', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                  messages: [{ role: 'user', content: message }] // ユーザーの最新メッセージのみ送信
+                }),
+              });
 
-                  const dummySuggestion: AISuggestion & { requestContext?: string } = {
-                   personaCountOptions: [5, 10, 20],
-                   selectedPersonaCount: Math.random() < 0.3 ? 5 : Math.random() < 0.6 ? 10 : 15, // Randomize default slightly
-                   attributes: attributes + " (自動提案)",
-                   detailLevel: 'medium',
-                   requestContext: message // Pass original request for context
-                  };
-
-                  setAiSuggestion(dummySuggestion); 
-                  // Set initial settings based on suggestion
-                  setCurrentSettings({ count: dummySuggestion.selectedPersonaCount, level: dummySuggestion.detailLevel });
-                  
-                  // --- Create Confirmation Response --- 
-                  const handleConfirmAction = (suggestionPayload: AISuggestion & { requestContext?: string }) => {
-                      console.log("Confirm Action Clicked with payload:", suggestionPayload);
-                      // Pass the suggestion object in the payload
-                      handleSendMessage('Confirm Generation', 'Action: Confirm Generation', { suggestion: suggestionPayload });
-                  };
-                  const handleModifyAction = () => {
-                      handleSendMessage('Request Modification', 'Action: Request Modification');
-                  };
-                  aiResponse = {
-                      id: aiResponseId, role: 'ai',
-                      content: `リクエスト了解しました。\nペルソナ${dummySuggestion.selectedPersonaCount}人 (詳細度: ${detailLevelLabels[dummySuggestion.detailLevel]}, ${dummySuggestion.attributes}) の生成を提案します。\n内容を確認・調整し、下のボタンで指示してください。`,
-                      actions: [
-                          { id: 'act-confirm-gen', label: 'はい、生成を開始', onClick: () => handleConfirmAction(dummySuggestion) },
-                          { id: 'act-req-modify', label: 'いいえ、修正を指示 (未実装)', onClick: handleModifyAction },
-                      ]
-                  };
-                  nextView = 'confirmation';
-                  setIsLoading(false); 
-
-              } else if (currentView === 'confirmation') {
-                  console.log("Processing unexpected text input during confirmation (Normal Mode).");
-                  aiResponse = { id: aiResponseId, role: 'ai', content: `設定を確認・調整し、下のボタンで指示してください。` }; // Removed ID
-                  nextView = 'confirmation';
-                  setIsLoading(false);
-
-              } else if (currentView === 'results_dashboard' || currentView === 'analysis_result' || currentView === 'persona_list' || currentView === 'persona_detail') {
-                  console.log("Processing follow-up text message (Normal Mode).");
-                  // Simple echo for now, future: more complex interaction
-                  aiResponse = { id: aiResponseId, role: 'ai', content: `メッセージ「${message}」を受け取りました。(通常モード: 対話機能は未実装)` }; // Removed ID
-                  nextView = currentView;
-                  setIsLoading(false);
-
-              } else if (currentView === 'generating') {
-                  console.log("Message received while generating (Normal Mode).");
-                  aiResponse = { id: aiResponseId, role: 'ai', content: '現在ペルソナ生成中です。完了までお待ちください。' };
-                  nextView = 'generating';
-                  // isLoading remains true
+              if (!response.ok) {
+                // エラーレスポンスを処理
+                const errorData = await response.json();
+                console.error("API Error:", errorData);
+                aiResponse = {
+                  id: aiResponseId,
+                  role: 'ai',
+                  content: `エラーが発生しました: ${errorData.message || response.statusText}`,
+                };
               } else {
-                  console.log(`[View Branch] Fallback for text in view: ${currentView} (Normal Mode)`);
-                  aiResponse = { id: aiResponseId, role: 'ai', content: `(現在の状態: ${currentView}) 「${message}」に予期せぬタイミングで応答できません。` };
-                  setIsLoading(false);
-                  nextView = currentView;
+                // 成功レスポンスを処理
+                const expertProposal: ExpertProposal = await response.json(); // 型を適用
+                console.log("API Success:", expertProposal);
+
+                // --- ここからストア更新とビュー切り替え --- 
+                // 1. ストアに結果を保存
+                //    注意: バックエンドの expert 型とフロントの AIPersona 型の差異を吸収する必要あり
+                //    ここでは仮にそのままセットするが、実際には変換が必要な場合あり
+                setExperts(expertProposal.experts as AIPersona[]); // 型アサーションで一旦対応
+                setProposalSummary(expertProposal.summary);
+
+                // 2. 表示ビューを切り替え
+                setCurrentView('results_dashboard'); // ダッシュボード表示に切り替え
+                viewChangedInternally = true; // ビューが内部で変更されたフラグ
+                // --- ここまでストア更新とビュー切り替え --- 
+
+                // 応答メッセージを生成 (仮)
+                aiResponse = {
+                  id: aiResponseId,
+                  role: 'ai',
+                  content: `${expertProposal.summary.persona_count}人の専門家候補が見つかりました。結果を表示します。`,
+                  // 必要に応じて actions を追加
+                };
               }
-          // --- Sub-Branch 2.2: Persona Question Mode --- 
+            } catch (error) { 
+              // ... (Fetchエラー処理)
+            }
           } else if (currentMode === 'persona_question') {
-              console.log("Processing persona question.");
-              const personasInCurrentSet = resultSets[displayedResultSetIndex]?.personas || [];
-              const targetPersonas = personasInCurrentSet.filter(p => selectedPersonaIdsForQuery.includes(p.id));
-
-              if (targetPersonas.length > 0) {
-                  const personaNames = targetPersonas.map(p => p.name).join(', ');
-                  await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 500)); // Simulate thinking time
-                  aiResponse = {
-                     id: aiResponseId,
-                     role: 'ai',
-                     content: `${personaNames}さんへのご質問「${message}」ですね。\n\nAIが${personaNames}さんの視点を総合的に考慮して応答します。\n(注: 各ペルソナからの個別の詳細な回答を生成する機能は現在開発中です。今後のアップデートでより詳細な対話が可能になる予定です。)`
-                  };
-              } else {
-                   // This should have been caught earlier when adding the user message, but as a safeguard:
-                   aiResponse = { id: aiResponseId, role: 'system', content: `質問対象のペルソナが選択されていないか、見つかりませんでした。ペルソナ一覧で対象を選択してください。` };
-              }
-              nextView = currentView; // Stay in the current view
-              setIsLoading(false);
-              console.log("isLoading set to false after processing persona question");
+            // ペルソナへの質問の場合 (既存のダミーロジックまたは将来の拡張)
+            console.log("[Message Branch] Mode is 'persona_question'. Handling persona query...");
+            // ダミー応答 (既存のロジックがあればそれを維持)
+            aiResponse = {
+              id: aiResponseId,
+              role: 'ai',
+              content: `[${selectedPersonaIdsForQuery.join(', ')}] への質問「${message}」に対するダミー応答です。`,
+            };
           }
-      // --- BRANCH 3: Fallback (Should not be reached often) --- 
-      } else {
-           console.log(`[Fallback Branch] Unhandled state/message combination. View: ${currentView}, Message: ${message}, Mode/Action: ${modeOrAction}`);
-           aiResponse = { id: aiResponseId, role: 'ai', content: `予期せぬエラーが発生しました。処理を続行できません。` };
-           setIsLoading(false);
-           nextView = currentView; // Or potentially 'error' view
-      }
 
-      // --- Final State Updates --- 
-      // Add AI response unless it was added before setTimeout (Confirm Generation action)
-      let shouldAddResponse = true;
-      if (isActionClick) {
-          const actionInner = modeOrAction.split(': ')[1].trim();
-          if (actionInner === 'Confirm Generation' && payload?.suggestion) {
-              shouldAddResponse = false; // Already added before setTimeout
+          // AI応答があればチャット履歴に追加
+          if (aiResponse) {
+            console.log("Adding AI response message:", aiResponse.id);
+            setChatHistory(prev => addUniqueMessage(prev, aiResponse!));
           }
+          // 通常メッセージ/ペルソナ質問処理後に isLoading を解除
+          setIsLoading(false);
+          console.log("[Message Branch] isLoading set to false after processing message.");
       }
-      if(aiResponse && shouldAddResponse) {
-          console.log("Adding AI/System message:", aiResponse.id);
-          setChatHistory(prev => addUniqueMessage(prev, aiResponse!));
-      }
-
-      // Update view state ONLY if changed AND not handled internally
-      if (nextView !== currentView && !viewChangedInternally) {
-          console.log(`Attempting to change view from ${currentView} to ${nextView}`);
-          setCurrentView(nextView);
-          console.log(`View changed to ${nextView}`);
-      } else if (nextView === currentView) {
-          console.log(`View remains ${currentView}`);
-      } else {
-          console.log(`View change for ${nextView} was handled internally.`);
-      }
-      // Ensure isLoading is false unless generation is ongoing
-      if (!(isActionClick && modeOrAction.startsWith('Action: Confirm Generation'))) {
-          // If an action was clicked OR we are not in generating view, set loading to false.
-          // The generation action handles its own isLoading=false within its setTimeout.
-          if (isActionClick || currentView !== 'generating') {
-            // Add a small delay if it's an action click, to allow UI to update before enabling input again
-            const delay = isActionClick ? 100 : 0;
-            setTimeout(() => {
-                setIsLoading(false);
-                console.log(`isLoading set to false at end of handleSendMessage (action: ${isActionClick}, view: ${currentView})`);
-            }, delay);
-          }
-      } else {
-         console.log("isLoading remains true as generation action is in progress.");
-      }
-      // console.log(`End of handleSendMessage. isLoading state reflects outcome. Current view: ${currentView}`);
 
     } catch (error) {
       console.error("Error in handleSendMessage:", error);
-      const errorMsg: ChatMessage = { id: `err-${Date.now()}`, role: 'system', content: '処理中にエラーが発生しました。' };
+      const errorMsg: ChatMessage = {
+        id: `error-${messageTimestamp}`,
+        role: 'system',
+        content: `メッセージ処理中に予期せぬエラーが発生しました: ${error}`
+      };
       setChatHistory(prev => addUniqueMessage(prev, errorMsg));
-      setCurrentView('error');
-      setIsLoading(false); // ★ Add this line to ensure isLoading is false on error
-      // console.error("Caught error. isLoading set to false.");
-    } // ★ Remove the entire finally block that was here
-  }; // End of handleSendMessage
+      setIsLoading(false); // Ensure loading is reset on unexpected error
+      console.log("isLoading set to false due to unexpected error in handleSendMessage");
+    } finally {
+      // Ensure isLoading is always reset unless a view change happened that handles it elsewhere
+      // (e.g., the generation timeout in Confirm Generation)
+      // Note: The logic inside branches might have already set isLoading to false.
+      // This finally block acts as a safeguard, but might be redundant if branches handle it perfectly.
+      // Let's refine this: Only reset if it wasn't reset by a specific branch AND no internal view change expects loading.
+      // This logic gets complex quickly. Simpler approach: Each branch MUST reset isLoading.
+      // The Confirm Generation action with setTimeout is the tricky one.
+      // Let's rely on branches setting it, and remove this potentially problematic finally block reset.
+      // console.log(`Finally block reached. isLoading is currently: ${isLoading}`);
+      // if (isLoading && !viewChangedInternally) { // Basic safeguard attempt
+      //   setIsLoading(false);
+      //   console.log("isLoading reset in finally block as a safeguard.");
+      // }
+    }
+  };
 
   // Initial request submission (no changes needed here)
   const handleSubmitInitialRequest = (request: string) => {
@@ -2002,17 +1976,36 @@ export function PersonaSimulationPage() {
     return map;
   }, [resultSets, displayedResultSetIndex]);
 
+  // ★ Handler for tab navigation
+  const handleTabChange = (view: SimulationView) => {
+    // relationships_diagram や action_suggestions からダッシュボードやリストに戻る際は
+    // viewBeforeList のようなものを考慮する必要があるかもしれないが、一旦直接遷移させる。
+    setViewBeforeList(currentView); // 遷移前のビューを記録 (リストや詳細からの戻り先として)
+    setCurrentView(view);
+  };
+
+  // ★ Handler for menu item navigation
+  const handleMenuItemChange = (view: SimulationView) => {
+    setViewBeforeList(currentView); 
+    setCurrentView(view);
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-gray-100 overflow-hidden relative"> {/* ★ Added relative positioning */}
-      {/* ★ Wrap content in ResizablePanelGroup */}
-      <ResizablePanelGroup direction="vertical" className="min-h-0 flex-1"> {/* min-h-0 and flex-1 are important for proper sizing */}
-        <ResizablePanel defaultSize={65} minSize={30} className="min-h-0"> {/* Added min-h-0 */}
+    <div className="flex flex-col h-screen bg-gray-100 overflow-hidden relative">
+      {/* 上部のタブ表示は削除 */}
+
+      <ResizablePanelGroup direction="vertical" className="min-h-0 flex-1">
+        {/* <ResizablePanel defaultSize={5} minSize={5} maxSize={5} className="flex-shrink-0">
+             ここに以前 SimulationViewTabs を入れていたが、今回は空か別のヘッダー要素
+        </ResizablePanel>
+        <ResizableHandle withHandle className="border-0 bg-transparent" /> */} {/* 上部パネルがなければハンドルも不要かコメントアウト */} 
+        <ResizablePanel defaultSize={65} minSize={30} className="min-h-0"> {/* defaultSizeを調整 (上部パネルを削除した場合) */}
           <DynamicContentArea
             currentView={currentView}
             isLoading={isLoading}
             onSubmitRequest={handleSubmitInitialRequest}
-            personas={resultSets[displayedResultSetIndex]?.personas ?? []}
-            personasMap={personasMap} // ★ Pass personasMap
+            experts={experts} // ストアから渡す
+            proposalSummary={proposalSummary} // ストアから渡す
             userRequestForConfirmation={currentRequest}
             aiSuggestion={aiSuggestion}
             onSettingsChange={handleSettingsChange}
@@ -2044,7 +2037,16 @@ export function PersonaSimulationPage() {
         </ResizablePanel>
       </ResizablePanelGroup>
 
-      {/* Fluid Menu (fixed position, outside of resizable group) */}
+      {/* ★ SimulationViewVerticalMenu を ResizablePanelGroup の外、右下に配置 */}
+      {isPersonaGenerated && currentView !== 'initial' && currentView !== 'confirmation' && currentView !== 'generating' && (
+        <SimulationViewVerticalMenu
+          currentView={currentView}
+          onMenuChange={handleMenuItemChange}
+          availableMenuItems={mainSimulationMenuItems}
+        />
+      )}
+
+      {/* Fluid Menu (左上) */}
       <div className="absolute top-8 left-8 z-50">
         <MenuContainer>
           <MenuItem

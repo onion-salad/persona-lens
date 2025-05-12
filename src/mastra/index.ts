@@ -7,6 +7,7 @@ import { testAgent } from './agents/testAgent';
 import { estimatorAgent } from './agents/estimatorAgent';
 import { personaFactory } from './tools/personaFactory';
 import { orchestratorAgent } from './agents/orchestratorAgent';
+import { handleGenerateExpertProposal } from './routes/generateExpertProposal';
 
 export const mastra = new Mastra({
   agents: { weatherAgent, testAgent, estimatorAgent, orchestratorAgent },
@@ -20,5 +21,16 @@ export const mastra = new Mastra({
   }),
   tools: {
     personaFactory,
+  },
+  server: {
+    port: 4111,
+    host: '0.0.0.0',
+    apiRoutes: [
+      {
+        path: '/generate-expert-proposal',
+        method: 'POST',
+        handler: handleGenerateExpertProposal,
+      },
+    ],
   },
 });
