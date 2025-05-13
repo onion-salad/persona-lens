@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { type Context } from "hono"; // HonoのContextを仮定してインポート
-import { orchestratorAgent } from "../agents/orchestratorAgent";
-import { expertProposalSchema } from "../schemas/expertProposalSchema";
+// orchestratorAgentの直接呼び出しは不要になる
+// import { orchestratorAgent } from "../agents/orchestratorAgent";
+import { runOrchestrator } from "../agents/orchestratorAgent"; // runOrchestratorをインポート
+// expertProposalSchema は runOrchestrator 内部で使われるため、ここでの直接利用は不要になる場合がある
 
 // リクエストボディのスキーマ
 const RequestBodySchema = z.object({
@@ -13,20 +15,19 @@ const RequestBodySchema = z.object({
   ).min(1),
 });
 
-// ハンドラ関数はHonoのContextライクなものを期待
+// ハンドラ関数
 export async function handleGenerateExpertProposal(ctx: Context): Promise<Response | void> {
-  // --- デバッグログ追加 ---
+  const logger = ctx.get('logger');
+  const req = ctx.req;
+
+  // デバッグログは残しても良いが、本番では削除またはレベル調整を検討
   console.log("handleGenerateExpertProposal called. ctx:", ctx);
   console.log("typeof ctx.get:", typeof ctx.get);
   console.log("typeof ctx.req:", typeof ctx.req);
   console.log("typeof ctx.json:", typeof ctx.json);
-  // --- デバッグログ追加ここまで ---
-
-  const logger = ctx.get('logger'); // MastraがHonoのctx.get/setでloggerを注入していると仮定
-  const req = ctx.req;
 
   if (req.method !== 'POST') {
-    // @ts-ignore // ctx.json が存在しない可能性を考慮
+    // @ts-ignore
     return ctx.json({ message: 'Method Not Allowed' }, 405);
   }
 
@@ -35,9 +36,8 @@ export async function handleGenerateExpertProposal(ctx: Context): Promise<Respon
     try {
       requestBody = await req.json();
     } catch (e) {
-      // @ts-ignore // logger が存在しない可能性を考慮
       logger?.error('Failed to parse request body:', e);
-      // @ts-ignore // ctx.json が存在しない可能性を考慮
+      // @ts-ignore
       return ctx.json({ message: 'Invalid JSON body' }, 400);
     }
 
@@ -45,49 +45,33 @@ export async function handleGenerateExpertProposal(ctx: Context): Promise<Respon
     try {
       validatedBody = RequestBodySchema.parse(requestBody);
     } catch (validationError) {
-      // @ts-ignore // logger が存在しない可能性を考慮
       logger?.error('Request body validation failed:', validationError);
-      // @ts-ignore // ctx.json が存在しない可能性を考慮
+      // @ts-ignore
       return ctx.json({ message: 'Invalid request body', details: (validationError as z.ZodError).errors }, 400);
     }
 
     const userMessage = validatedBody.messages.filter(m => m.role === 'user').pop();
 
-    if (!userMessage) {
-      // @ts-ignore // logger が存在しない可能性を考慮
-      logger?.error('No user message found in the request body');
-      // @ts-ignore // ctx.json が存在しない可能性を考慮
-      return ctx.json({ message: 'User message is required' }, 400);
+    if (!userMessage || !userMessage.content) { // contentの存在もチェック
+      logger?.error('No user message content found in the request body');
+      // @ts-ignore
+      return ctx.json({ message: 'User message content is required' }, 400);
     }
 
-    // @ts-ignore // logger が存在しない可能性を考慮
-    logger?.info(`Received request for expert proposal with message: \\"${userMessage.content.substring(0, 50)}...\\"`);
+    logger?.info(`Received request for expert proposal with message: \"${userMessage.content.substring(0, 100)}...\"`);
 
-    const result = await orchestratorAgent.generate(
-      [userMessage],
-      {
-        output: expertProposalSchema,
-      }
-    );
+    // runOrchestrator を呼び出し、結果を受け取る
+    const result = await runOrchestrator(userMessage.content);
 
-    // @ts-ignore // logger が存在しない可能性を考慮
-    logger?.info('Agent generated expert proposal successfully.');
+    logger?.info('Orchestration process completed successfully.');
 
+    // runOrchestrator が最終的なレスポンスオブジェクトを返すので、それをそのまま返す
     // @ts-ignore
-    if (result.object) {
-      // @ts-ignore // ctx.json が存在しない可能性を考慮
-      return ctx.json(result.object, 200);
-    } else {
-      // @ts-ignore // logger が存在しない可能性を考慮
-      logger?.error('Agent did not return a valid structured object.', result);
-      // @ts-ignore // ctx.json が存在しない可能性を考慮
-      return ctx.json({ message: 'Failed to generate structured proposal' }, 500);
-    }
+    return ctx.json(result, 200);
 
-  } catch (error) {
-    // @ts-ignore // logger が存在しない可能性を考慮
+  } catch (error: any) { // エラーの型をanyに
     logger?.error('Error in handleGenerateExpertProposal handler:', error);
-    // @ts-ignore // ctx.json が存在しない可能性を考慮
-    return ctx.json({ message: 'Internal server error' }, 500);
+    // @ts-ignore
+    return ctx.json({ message: 'Internal server error', error: error.message || 'Unknown error' }, 500);
   }
 } 
