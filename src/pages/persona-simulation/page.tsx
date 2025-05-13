@@ -111,18 +111,17 @@ type ResultSet = {
 // チャットメッセージの型
 type ChatMessage = {
   id: string;
-  role: 'user' | 'ai' | 'system'; // 'system' for initial prompts or mode changes
+  role: 'user' | 'ai' | 'system' | 'orchestrator' | 'persona'; // 'orchestrator'と'persona'を追加
   content: string;
+  speaker?: string; // 発言者名（オーケストレーターやペルソナ名）
   actions?: ChatAction[];
-  // Optional payload with the action, e.g., the suggestion for confirmation
-  actionPayload?: any; // Although not directly used on the object, defines the concept
-  // AIからの質問提案を含む場合
+  actionPayload?: any;
   proposal?: {
     question: string;
     onConfirm: () => void;
     onDeny: () => void;
   };
-  canDeepDive?: boolean; // ★ Flag to indicate if the message can be deep-dived
+  canDeepDive?: boolean;
 };
 
 type ChatAction = {
@@ -401,61 +400,63 @@ const ChatHistoryArea: React.FC<ChatHistoryAreaProps> = ({ chatHistory, onSendMe
         <div className="space-y-5 px-6 pb-5 pt-12 max-w-4xl mx-auto"> {/* Ensure pt-12 is enough to clear the blur */}
           {chatHistory.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex items-start gap-2.5 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`flex items-center justify-center w-6 h-6 rounded-full flex-shrink-0 mt-0.5 ${
-                  msg.role === 'ai' ? 'bg-gray-200 text-gray-600' :
-                  msg.role === 'user' ? 'bg-gray-800 text-white' :
-                  'bg-indigo-100 text-indigo-700'
-                }`}>
-                  {msg.role === 'ai' && <Bot className="w-3.5 h-3.5" />}
-                  {msg.role === 'user' && <User className="w-3.5 h-3.5" />}
-                  {msg.role === 'system' && <Sparkles className="w-3.5 h-3.5" />}
-                </div>
-                <div className={`rounded-xl px-3.5 py-2.5 text-sm ${ 
-                  msg.role === 'user'
-                    ? 'bg-gray-900 text-white'
-                    : msg.role === 'system'
-                      ? 'bg-indigo-50 text-indigo-800 border border-indigo-100'
-                      : 'bg-white text-gray-800 border border-gray-200'
-                }`}>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                  {/* ★ Show Deep Dive button for AI messages */}
-                  {msg.role === 'ai' && (
-                    <div className="mt-2 border-t border-gray-100 dark:border-gray-700/50 pt-2">
+              {/* 吹き出し */}
+              <div className={`rounded-xl px-3.5 py-2.5 text-sm ${ 
+                msg.role === 'user'
+                  ? 'bg-gray-900 text-white'
+                  : msg.role === 'system'
+                    ? 'bg-indigo-50 text-indigo-800 border border-indigo-100'
+                    : msg.role === 'orchestrator'
+                      ? 'bg-blue-50 text-blue-900 border border-blue-100'
+                      : msg.role === 'persona'
+                        ? 'bg-green-50 text-green-900 border border-green-100'
+                        : 'bg-white text-gray-800 border border-gray-200'
+              }`}>
+                {/* speakerがあれば上部に表示 */}
+                {msg.speaker && (
+                  <div className="text-xs font-semibold mb-1 text-gray-500 flex items-center gap-1">
+                    {msg.role === 'orchestrator' && <span className="text-blue-600">🎤 オーケストレーター</span>}
+                    {msg.role === 'persona' && <span className="text-green-600">👤 {msg.speaker}</span>}
+                    {msg.role !== 'orchestrator' && msg.role !== 'persona' && <span>{msg.speaker}</span>}
+                  </div>
+                )}
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+                {/* ★ Show Deep Dive button for AI messages */}
+                {msg.role === 'ai' && (
+                  <div className="mt-2 border-t border-gray-100 dark:border-gray-700/50 pt-2">
+                    <Button
+                      variant="ghost"
+                      // ★ Use size="sm" and adjust padding/height via className
+                      size="sm" 
+                      onClick={() => onSendMessage(msg.content, 'Action: Request Deep Dive', { targetMessageId: msg.id, originalContent: msg.content })}
+                      // ★ Adjust className for smaller size and padding
+                      className="text-xs h-6 px-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300"
+                    >
+                      <MessageSquarePlus className="w-3 h-3 mr-1" />
+                      もっと深掘りする
+                    </Button>
+                  </div>
+                )}
+                {msg.actions && msg.actions.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {msg.actions.map((action) => (
                       <Button
-                        variant="ghost"
-                        // ★ Use size="sm" and adjust padding/height via className
-                        size="sm" 
-                        onClick={() => onSendMessage(msg.content, 'Action: Request Deep Dive', { targetMessageId: msg.id, originalContent: msg.content })}
-                        // ★ Adjust className for smaller size and padding
-                        className="text-xs h-6 px-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300"
+                        key={action.id}
+                        size="sm"
+                        // ★ Adjust button styles for default text visibility
+                        variant={msg.role === 'system' ? "secondary" : "outline"}
+                        onClick={() => action.onClick(msg.actionPayload)}
+                        className={cn(
+                            "px-3 py-1 text-xs",
+                            // Ensure default text color is visible
+                            msg.role === 'system' ? "text-secondary-foreground hover:bg-secondary/90" : "text-foreground hover:bg-accent hover:text-accent-foreground"
+                        )}
                       >
-                        <MessageSquarePlus className="w-3 h-3 mr-1" />
-                        もっと深掘りする
+                        {action.label}
                       </Button>
-                    </div>
-                  )}
-                  {msg.actions && msg.actions.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {msg.actions.map((action) => (
-                        <Button
-                          key={action.id}
-                          size="sm"
-                          // ★ Adjust button styles for default text visibility
-                          variant={msg.role === 'system' ? "secondary" : "outline"}
-                          onClick={() => action.onClick(msg.actionPayload)}
-                          className={cn(
-                              "px-3 py-1 text-xs",
-                              // Ensure default text color is visible
-                              msg.role === 'system' ? "text-secondary-foreground hover:bg-secondary/90" : "text-foreground hover:bg-accent hover:text-accent-foreground"
-                          )}
-                        >
-                          {action.label}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -1373,11 +1374,6 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
       case 'initial': return <WelcomeView />;
       case 'request_input': return <RequestInputView onSubmit={onSubmitRequest} />;
       case 'confirmation': return aiSuggestion && userRequestForConfirmation ? <ConfirmationView userRequest={userRequestForConfirmation} suggestion={aiSuggestion} onSettingsChange={onSettingsChange} /> : null;
-      case 'generating':
-        // Use currentSettings if available, otherwise fallback or show generic message
-        const count = aiSuggestion?.selectedPersonaCount ?? 0;
-        const level = aiSuggestion?.detailLevel ?? 'medium'; 
-        return <GeneratingView count={count} level={level} />;
       case 'results_dashboard': return <ResultsDashboardView experts={experts} summary={proposalSummary} onViewPersonaList={onViewPersonaList} />;
       case 'analysis_result': return analysisType ? <AnalysisResultView analysisType={analysisType} personas={experts} onViewPersonaList={onViewPersonaList} /> : null;
       case 'persona_list': 
@@ -1396,17 +1392,12 @@ const DynamicContentArea: React.FC<DynamicContentAreaProps> = ({
                       onBackToList={onBackToList} 
                       onSaveChanges={onPersonaUpdate}
                   />;
-      // ★ Add case for relationship diagram
       case 'relationship_diagram':
         return <PersonaRelationshipDiagramView 
                   personas={experts} 
                   onNodeClick={(_event: React.MouseEvent, node: ReactFlowNode<PersonaNodeData>) => onRelationshipNodeClick(node.id)}
                 />;
-      // ★ Add case for action suggestions view
       case 'action_suggestions':
-        // experts を渡す (コンポーネント側で処理)
-        // return <ActionSuggestionsView personas={experts} />;
-        // ↓ 修正
         const dummySuggestions: ActionSuggestion[] = [
           { id: 'sugg1', category: 'UI/UX改善', title: 'ナビゲーションの改善', description: 'グローバルナビゲーションの項目を見直し、より直感的な操作を可能にします。', estimatedImpact: '中', requiredEffort: '中', relevantPersonaIds: experts.length > 0 ? [experts[0].id] : [] },
           { id: 'sugg2', category: '機能追加', title: '検索機能の強化', description: '高度なフィルタリングオプションを追加し、目的の情報へ素早くアクセスできるようにします。', estimatedImpact: '中', requiredEffort: '中', relevantPersonaIds: experts.length > 1 ? [experts[1].id] : [] },
@@ -1852,6 +1843,38 @@ export function PersonaSimulationPage() {
                 setCurrentView('results_dashboard'); // ダッシュボード表示に切り替え
                 viewChangedInternally = true; // ビューが内部で変更されたフラグ
                 // --- ここまでストア更新とビュー切り替え --- 
+
+                // --- 会話形式で履歴を構築 ---
+                const orchestratorStartMsg: ChatMessage = {
+                  id: `orchestrator-start-${aiResponseId}`,
+                  role: 'orchestrator',
+                  speaker: 'オーケストレーター',
+                  content: `専門家会議を開始します。${expertProposal.summary.persona_count}名の専門家が参加します。順にご意見を伺います。`
+                };
+
+                const personaMsgs: ChatMessage[] = (expertProposal.experts as any[]).map((exp, idx) => ({
+                  id: `persona-${exp.id}`,
+                  role: 'persona',
+                  speaker: exp.name,
+                  content: exp.answer
+                }));
+
+                const orchestratorSummaryMsg: ChatMessage = {
+                  id: `orchestrator-summary-${aiResponseId}`,
+                  role: 'orchestrator',
+                  speaker: 'オーケストレーター',
+                  content: `以上、${expertProposal.summary.persona_count}名の意見をまとめました。主なポイント: ${expertProposal.summary.main_attributes}`
+                };
+
+                setChatHistory(prev => [
+                  ...prev,
+                  orchestratorStartMsg,
+                  ...personaMsgs,
+                  orchestratorSummaryMsg
+                ]);
+
+                // 旧aiResponseの履歴追加は不要
+                // ... existing code ...
 
                 // 応答メッセージを生成 (仮)
                 aiResponse = {
