@@ -1,6 +1,7 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { supabase } from "../../lib/supabase/client"; // Supabaseクライアントをインポート
+import { supabase } from "../../lib/supabase/client";
+import { openai } from "@ai-sdk/openai";
 
 // 入力スキーマ定義 (zod) - expert_personasテーブルの主要なカラムに対応
 const personaAttributeSchema = z.object({
@@ -11,7 +12,6 @@ const personaAttributeSchema = z.object({
   position: z.string(), // 職位・役割
   company_size: z.string().optional(), // 企業規模
   region: z.string().optional(), // 地域
-  // expertise, background, personality, decision_making_style は一旦固定値 or 簡易生成
 });
 
 const personaFactoryInputSchema = z.object({
@@ -21,50 +21,66 @@ const personaFactoryInputSchema = z.object({
   personas_attributes: z.array(personaAttributeSchema).optional(), // 直接渡される場合
 });
 
-// 出力スキーマ定義 (zod)
 const personaFactoryOutputSchema = z.object({
   status: z.string(),
   count: z.number(),
   persona_ids: z.array(z.string()), // 作成されたペルソナのIDリスト
 });
 
+// AIで詳細プロフィールを生成するプロンプト
+function buildPersonaProfilePrompt(attr: any): string {
+  return `あなたはペルソナ設計のプロフェッショナルです。以下の属性を持つB2B専門家の詳細な人物像を日本語で設計してください。
+
+【属性】
+- 役職: ${attr.title}
+- 業種: ${attr.industry}
+- 職位: ${attr.position}
+- 会社名: ${attr.company ?? "（任意）"}
+- 企業規模: ${attr.company_size ?? "（任意）"}
+- 地域: ${attr.region ?? "（任意）"}
+
+【出力要件】
+- name: 本名風の日本人名
+- expertise: その業種・役職・職位にふさわしい専門分野やスキル、経験年数（JSON形式）
+- background: 学歴・職歴・受賞歴などの経歴（JSON形式）
+- personality: 性格・価値観・コミュニケーションスタイル（JSON形式）
+- decision_making_style: 意思決定スタイル（例: データ重視、合議制、トップダウン等）
+
+【出力形式】
+以下のJSON形式で出力してください。他のテキストは一切含めないでください。
+{
+  "name": "...",
+  "expertise": {"skills": [...], "experience_years": ...},
+  "background": {"education": "...", "work_history": "...", "awards": "..."},
+  "personality": {"type": "...", "values": [...], "communication": "..."},
+  "decision_making_style": "..."
+}`;
+}
+
 // Supabase保存関数
-async function savePersonaToSupabase(personaData: z.infer<typeof personaAttributeSchema>) {
+async function savePersonaToSupabase(personaData: any) {
   const { data, error } = await supabase
     .from('expert_personas')
     .insert([
-      {
-        name: personaData.name || `${personaData.region || '不明地域'}の${personaData.company_size || '不明規模'}の${personaData.position}`, // 名前がなければ簡易生成
-        title: personaData.title,
-        company: personaData.company,
-        industry: personaData.industry,
-        position: personaData.position,
-        company_size: personaData.company_size,
-        region: personaData.region,
-        expertise: { skills: ["交渉", "戦略立案"], experience_years: 10 }, // ダミー
-        background: { education: "MBA", work_history: "大手IT企業でのマネージャー経験" }, // ダミー
-        personality: { type: "分析的", communication: "直接的" }, // ダミー
-        decision_making_style: "データ駆動型、合議を重視", // ダミー
-      },
+      personaData
     ])
-    .select('id') // 挿入されたレコードのIDを取得
-    .single(); // 1件のみ挿入・取得
-
+    .select('id')
+    .single();
   if (error) {
     console.error("[Supabase] Error saving persona:", error);
     throw new Error(`Failed to save persona to Supabase: ${error.message}`);
   }
   console.log("[Supabase] Persona saved:", data);
-  return data.id; // 保存されたペルソナのIDを返す
+  return data.id;
 }
 
 export const personaFactory = createTool({
   id: "personaFactory",
-  description: "B2Bペルソナ属性から詳細情報を生成し、Supabaseのexpert_personasテーブルに保存するツール。",
+  description: "B2Bペルソナ属性からAIで詳細情報を生成し、Supabaseのexpert_personasテーブルに保存するツール。",
   inputSchema: personaFactoryInputSchema,
   outputSchema: personaFactoryOutputSchema,
   execute: async (input) => {
-    console.log("\\n--- personaFactory Tool Execution Start ---");
+    console.log("\n--- personaFactory Tool Execution Start ---");
     console.log("Received validated input:", JSON.stringify(input, null, 2));
 
     const attributesList = input?.context?.personas_attributes || input?.personas_attributes;
@@ -78,20 +94,44 @@ export const personaFactory = createTool({
     const createdPersonaIds: string[] = [];
 
     for (const attr of attributesList) {
-      // ここでAIを使ってexpertise, background, personalityなどをよりリッチに生成することも可能
-      // MVPでは入力された属性とダミーデータで保存
+      // AIで詳細プロフィールを生成
+      const prompt = buildPersonaProfilePrompt(attr);
+      const model = openai("gpt-4o");
+      const result = await model.doGenerate({
+        prompt: [
+          { role: "user", content: [{ type: "text", text: prompt }] }
+        ],
+        inputFormat: "messages",
+        mode: { type: "regular" },
+      });
+      let profile;
       try {
-        const personaId = await savePersonaToSupabase(attr);
+        let text = result.text || "{}";
+        text = text.replace(/```json|```/g, "").trim();
+        profile = JSON.parse(text);
+      } catch (e) {
+        console.error("[personaFactory] AI出力のJSONパースに失敗:", result.text);
+        throw new Error("AI出力がJSON形式ではありませんでした");
+      }
+      // DB保存用データを組み立て
+      const personaData = {
+        ...attr,
+        name: profile.name,
+        expertise: profile.expertise,
+        background: profile.background,
+        personality: profile.personality,
+        decision_making_style: profile.decision_making_style,
+      };
+      try {
+        const personaId = await savePersonaToSupabase(personaData);
         createdPersonaIds.push(personaId);
       } catch (error) {
         console.error(`Failed to process and save persona with attributes: ${JSON.stringify(attr)}`, error);
-        // エラーが発生しても処理を継続するか、ここでエラーを投げて停止するかは要件による
-        // 今回はエラーが発生した場合は全体を失敗させる
         throw error;
       }
     }
 
-    console.log("--- personaFactory Tool Execution End ---\\n");
+    console.log("--- personaFactory Tool Execution End ---\n");
     return { status: "ok", count: createdPersonaIds.length, persona_ids: createdPersonaIds };
   },
 }); 
