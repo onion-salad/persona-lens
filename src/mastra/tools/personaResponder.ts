@@ -3,27 +3,56 @@ import { z } from "zod";
 import { supabase } from "../../lib/supabase/client";
 import { openai } from "@ai-sdk/openai";
 
-// 入力スキーマ
+// Enumのな型定義
+type PersonaType = 'business_professional' | 'general_consumer' | 'specific_role' | 'custom';
+type AgeGroup = 'child' | 'teenager' | '20s' | '30s' | '40s' | '50s' | '60s' | '70s_and_above';
+type Gender = 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | 'other';
+type LocationType = 'urban' | 'suburban' | 'rural';
+type TechnologyLiteracy = 'high' | 'medium' | 'low';
+
+// 更新された PersonaAttributes 型
 type PersonaAttributes = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+
   name?: string;
-  title: string;
+  persona_type?: PersonaType;
+  description_by_ai?: string;
+
+  // 一般消費者向け属性
+  age_group?: AgeGroup;
+  gender?: Gender;
+  occupation_category?: string;
+  interests?: string[];
+  lifestyle?: string;
+  family_structure?: string;
+  location_type?: LocationType;
+  values_and_priorities?: string[];
+  technology_literacy?: TechnologyLiteracy;
+
+  // ビジネス専門家向け属性 (nullableに変更)
+  title?: string;
+  industry?: string;
+  position?: string;
   company?: string;
-  industry: string;
-  position: string;
   company_size?: string;
   region?: string;
-  expertise?: any;
-  background?: any;
-  personality?: any;
+  expertise?: any; // jsonb
+  background?: any; // jsonb
+  personality?: any; // jsonb
   decision_making_style?: string;
+
+  // カスタム属性
+  custom_attributes?: any; // jsonb
 };
 
-const personaResponderInputSchema = z.object({
+export const personaResponderInputSchema = z.object({
   persona_id: z.string().uuid(),
   question: z.string(),
 });
 
-const personaResponderOutputSchema = z.object({
+export const personaResponderOutputSchema = z.object({
   persona_id: z.string().uuid(),
   answer: z.string(),
   persona_name: z.string().optional(),
@@ -47,7 +76,39 @@ async function fetchPersona(persona_id: string): Promise<PersonaAttributes | nul
 
 // プロンプト生成
 function buildPrompt(persona: PersonaAttributes, question: string): string {
-  return `あなたは以下の属性を持つ専門家です。\n\n- 名前: ${persona.name ?? '不明'}\n- 役職: ${persona.title}\n- 業種: ${persona.industry}\n- 会社: ${persona.company ?? '不明'}\n- 職位: ${persona.position}\n- 企業規模: ${persona.company_size ?? '不明'}\n- 地域: ${persona.region ?? '不明'}\n- 専門分野: ${JSON.stringify(persona.expertise) ?? '不明'}\n- 経歴: ${JSON.stringify(persona.background) ?? '不明'}\n- 性格: ${JSON.stringify(persona.personality) ?? '不明'}\n- 意思決定スタイル: ${persona.decision_making_style ?? '不明'}\n\nユーザーからの質問: ${question}\n\nこの専門家として、専門的かつ分かりやすく日本語で回答してください。`;
+  // persona_type に応じてプロンプトの基本形を変えることも可能
+  let personaDescription = `あなたは以下の属性を持つ人物です。\n`;
+  personaDescription += `ペルソナタイプ: ${persona.persona_type ?? 'custom'}\n`;
+  if (persona.name) personaDescription += `名前: ${persona.name}\n`;
+  if (persona.description_by_ai) personaDescription += `AIによる概要: ${persona.description_by_ai}\n`;
+
+  // 一般消費者向け情報
+  if (persona.age_group) personaDescription += `年齢層: ${persona.age_group}\n`;
+  if (persona.gender) personaDescription += `性別: ${persona.gender}\n`;
+  if (persona.occupation_category) personaDescription += `職業分類: ${persona.occupation_category}\n`;
+  if (persona.interests && persona.interests.length > 0) personaDescription += `興味関心: ${persona.interests.join(', ')}\n`;
+  if (persona.lifestyle) personaDescription += `ライフスタイル: ${persona.lifestyle}\n`;
+  if (persona.family_structure) personaDescription += `家族構成: ${persona.family_structure}\n`;
+  if (persona.location_type) personaDescription += `居住地タイプ: ${persona.location_type}\n`;
+  if (persona.values_and_priorities && persona.values_and_priorities.length > 0) personaDescription += `価値観・優先事項: ${persona.values_and_priorities.join(', ')}\n`;
+  if (persona.technology_literacy) personaDescription += `テクノロジーリテラシー: ${persona.technology_literacy}\n`;
+
+  // ビジネス専門家向け情報
+  if (persona.title) personaDescription += `役職: ${persona.title}\n`;
+  if (persona.industry) personaDescription += `業種: ${persona.industry}\n`;
+  if (persona.position) personaDescription += `職位・役割: ${persona.position}\n`;
+  if (persona.company) personaDescription += `会社名: ${persona.company}\n`;
+  if (persona.company_size) personaDescription += `企業規模: ${persona.company_size}\n`;
+  if (persona.decision_making_style) personaDescription += `意思決定スタイル: ${persona.decision_making_style}\n`;
+
+  // 共通・詳細情報
+  if (persona.region) personaDescription += `地域: ${persona.region}\n`;
+  if (persona.expertise) personaDescription += `専門分野: ${typeof persona.expertise === 'string' ? persona.expertise : JSON.stringify(persona.expertise)}\n`;
+  if (persona.background) personaDescription += `経歴: ${typeof persona.background === 'string' ? persona.background : JSON.stringify(persona.background)}\n`;
+  if (persona.personality) personaDescription += `性格特徴: ${typeof persona.personality === 'string' ? persona.personality : JSON.stringify(persona.personality)}\n`;
+  if (persona.custom_attributes) personaDescription += `カスタム属性: ${typeof persona.custom_attributes === 'string' ? persona.custom_attributes : JSON.stringify(persona.custom_attributes)}\n`;
+
+  return `${personaDescription}\nユーザーからの質問: ${question}\n\n上記の人物として、専門的かつ分かりやすく日本語で回答してください。`;
 }
 
 export const personaResponder = createTool({

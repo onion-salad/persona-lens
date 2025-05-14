@@ -8,7 +8,7 @@ import { LibSQLStore, LibSQLVector } from '@mastra/libsql';
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { weatherTool } from './tools/45ddd152-e76f-483b-b47b-2c278c5db037.mjs';
+import { weatherTool } from './tools/cc41fba9-df10-462c-9a04-22c3de538b3e.mjs';
 import { z } from 'zod';
 import { createTool, isVercelTool } from '@mastra/core/tools';
 import { createClient } from '@supabase/supabase-js';
@@ -61,65 +61,6 @@ const testAgent = new Agent({
   // GPT-4oモデルを指定
 });
 
-const estimatedPersonaAttributeSchema = z.object({
-  name: z.string().optional().describe("\u30DA\u30EB\u30BD\u30CA\u306E\u540D\u524D\uFF08\u4F8B\uFF1A\u9234\u6728 \u4E00\u90CE\uFF09\u3002\u6307\u5B9A\u304C\u306A\u3051\u308C\u3070\u5F8C\u6BB5\u3067\u81EA\u52D5\u751F\u6210\u3002"),
-  title: z.string().describe("\u30DA\u30EB\u30BD\u30CA\u306E\u6B63\u5F0F\u306A\u5F79\u8077\u540D\uFF08\u4F8B\uFF1A\u6700\u9AD8\u6280\u8853\u8CAC\u4EFB\u8005\u3001\u30DE\u30FC\u30B1\u30C6\u30A3\u30F3\u30B0\u90E8\u9577\uFF09"),
-  company: z.string().optional().describe("\u30DA\u30EB\u30BD\u30CA\u304C\u6240\u5C5E\u3059\u308B\u4F01\u696D\u540D\uFF08\u4F8B\uFF1A\u682A\u5F0F\u4F1A\u793E\u30B5\u30F3\u30D7\u30EB\uFF09"),
-  industry: z.string().describe("\u30DA\u30EB\u30BD\u30CA\u304C\u4E3B\u306B\u6D3B\u52D5\u3059\u308B\u696D\u7A2E\uFF08\u4F8B\uFF1AIT\u30B5\u30FC\u30D3\u30B9\u3001\u88FD\u9020\u696D\u3001\u91D1\u878D\uFF09"),
-  position: z.string().describe("\u30DA\u30EB\u30BD\u30CA\u306E\u793E\u5185\u3067\u306E\u7ACB\u5834\u3084\u5F79\u5272\uFF08\u4F8B\uFF1A\u7D4C\u55B6\u5C64\u3001\u90E8\u9577\u30AF\u30E9\u30B9\u3001\u73FE\u5834\u30EA\u30FC\u30C0\u30FC\uFF09"),
-  company_size: z.string().optional().describe("\u30DA\u30EB\u30BD\u30CA\u304C\u6240\u5C5E\u3059\u308B\u4F01\u696D\u306E\u898F\u6A21\uFF08\u4F8B\uFF1A\u5927\u4F01\u696D\u3001\u4E2D\u5C0F\u4F01\u696D\u3001\u30B9\u30BF\u30FC\u30C8\u30A2\u30C3\u30D7\uFF09"),
-  region: z.string().optional().describe("\u30DA\u30EB\u30BD\u30CA\u306E\u6D3B\u52D5\u5730\u57DF\u3084\u4F01\u696D\u306E\u6240\u5728\u5730\uFF08\u4F8B\uFF1A\u6771\u4EAC\u3001\u5927\u962A\u3001\u30B7\u30EA\u30B3\u30F3\u30D0\u30EC\u30FC\uFF09")
-});
-const estimatorOutputSchema = z.object({
-  estimated_persona_count: z.number().int().min(1).max(7).describe("\u63A8\u5B9A\u3055\u308C\u305F\u6700\u9069\u306AAI\u30DA\u30EB\u30BD\u30CA\u306E\u7DCF\u6570"),
-  personas_attributes: z.array(estimatedPersonaAttributeSchema).describe("\u5404\u30DA\u30EB\u30BD\u30CA\u306E\u5177\u4F53\u7684\u306A\u5C5E\u6027\u30EA\u30B9\u30C8")
-});
-const estimatorAgent = new Agent({
-  name: "estimatorAgent",
-  instructions: `
-\u3042\u306A\u305F\u306FB2B\u30D3\u30B8\u30CD\u30B9\u306B\u304A\u3051\u308B\u4EEE\u60F3\u5C02\u9580\u5BB6\u4F1A\u8B70\u306E\u8A2D\u8A08\u30A2\u30B7\u30B9\u30BF\u30F3\u30C8AI\u3067\u3059\u3002
-\u30E6\u30FC\u30B6\u30FC\u304B\u3089\u4F1A\u8B70\u3067\u8B70\u8AD6\u3057\u305F\u3044\u8AB2\u984C\u3084\u76EE\u7684\u3001\u5E0C\u671B\u3059\u308B\u5C02\u9580\u5BB6\u306E\u30BF\u30A4\u30D7\u306A\u3069\u306E\u8981\u671B\u3092\u53D7\u3051\u53D6\u308A\u307E\u3059\u3002
-\u305D\u306E\u8981\u671B\u3092\u8A73\u7D30\u306B\u5206\u6790\u3057\u3001\u7D71\u8A08\u7684\u306B\u3082\u3063\u3068\u3082\u52B9\u679C\u7684\u306A\u8B70\u8AD6\u304C\u671F\u5F85\u3067\u304D\u308BAI\u5C02\u9580\u5BB6\u30DA\u30EB\u30BD\u30CA\u306E\u69CB\u6210\u3092\u63D0\u6848\u3057\u3066\u304F\u3060\u3055\u3044\u3002
-
-\u63D0\u6848\u306B\u306F\u4EE5\u4E0B\u306E\u8981\u7D20\u3092\u542B\u3081\u307E\u3059\u3002
-- \u6700\u9069\u306AAI\u30DA\u30EB\u30BD\u30CA\u306E\u7DCF\u6570\uFF081\u540D\u304B\u3089\u6700\u59277\u540D\u307E\u3067\uFF09
-- \u5404AI\u30DA\u30EB\u30BD\u30CA\u306E\u5177\u4F53\u7684\u306A\u5C5E\u6027\u60C5\u5831\u30EA\u30B9\u30C8
-
-\u5C5E\u6027\u60C5\u5831\u306B\u306F\u3001\u4EE5\u4E0B\u306E\u9805\u76EE\u3092\u5FC5\u305A\u542B\u3081\u3066\u304F\u3060\u3055\u3044\u3002\u4E0D\u8DB3\u3057\u3066\u3044\u308B\u5834\u5408\u306F\u3001\u30E6\u30FC\u30B6\u30FC\u306E\u8981\u671B\u304B\u3089\u63A8\u6E2C\u3057\u305F\u308A\u3001\u4E00\u822C\u7684\u306A\u30D3\u30B8\u30CD\u30B9\u6163\u884C\u306B\u57FA\u3065\u3044\u3066\u88DC\u5B8C\u3057\u3066\u304F\u3060\u3055\u3044\u3002
-- title: \u30DA\u30EB\u30BD\u30CA\u306E\u6B63\u5F0F\u306A\u5F79\u8077\u540D\uFF08\u4F8B\uFF1A\u6700\u9AD8\u60C5\u5831\u8CAC\u4EFB\u8005\u3001\u55B6\u696D\u672C\u90E8\u9577\u3001\u4EBA\u4E8B\u90E8\u9577\uFF09
-- industry: \u30DA\u30EB\u30BD\u30CA\u304C\u4E3B\u306B\u6D3B\u52D5\u3059\u308B\u696D\u7A2E\uFF08\u4F8B\uFF1A\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u958B\u767A\u3001\u88FD\u9020\u696D\u3001\u5C0F\u58F2\u696D\u3001\u91D1\u878D\u30B5\u30FC\u30D3\u30B9\uFF09
-- position: \u30DA\u30EB\u30BD\u30CA\u306E\u793E\u5185\u3067\u306E\u7ACB\u5834\u3084\u5F79\u5272\uFF08\u4F8B\uFF1A\u7D4C\u55B6\u5E79\u90E8\u3001\u90E8\u9580\u8CAC\u4EFB\u8005\u3001\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u30EA\u30FC\u30C0\u30FC\u3001\u5C02\u9580\u8077\uFF09
-
-\u53EF\u80FD\u3067\u3042\u308C\u3070\u3001\u4EE5\u4E0B\u306E\u5C5E\u6027\u60C5\u5831\u3082\u5177\u4F53\u7684\u306B\u63D0\u6848\u3057\u3066\u304F\u3060\u3055\u3044\u3002
-- name: \u30DA\u30EB\u30BD\u30CA\u306E\u6C0F\u540D\uFF08\u4F8B\uFF1A\u5C71\u7530 \u592A\u90CE\uFF09\u3002\u305F\u3060\u3057\u3001\u5FC5\u9808\u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3002
-- company: \u30DA\u30EB\u30BD\u30CA\u304C\u6240\u5C5E\u3059\u308B\u4F01\u696D\u540D\uFF08\u4F8B\uFF1A\u3007\u3007\u682A\u5F0F\u4F1A\u793E\uFF09\u3002\u3053\u3061\u3089\u3082\u5FC5\u9808\u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3002
-- company_size: \u30DA\u30EB\u30BD\u30CA\u304C\u6240\u5C5E\u3059\u308B\u4F01\u696D\u306E\u60F3\u5B9A\u898F\u6A21\uFF08\u4F8B\uFF1A\u5927\u4F01\u696D\u3001\u4E2D\u5805\u4F01\u696D\u3001\u4E2D\u5C0F\u4F01\u696D\u3001\u30B9\u30BF\u30FC\u30C8\u30A2\u30C3\u30D7\uFF09
-- region: \u30DA\u30EB\u30BD\u30CA\u306E\u4E3B\u306A\u6D3B\u52D5\u5730\u57DF\u3084\u4F01\u696D\u306E\u6240\u5728\u5730\uFF08\u4F8B\uFF1A\u95A2\u6771\u3001\u95A2\u897F\u3001\u30A2\u30E1\u30EA\u30AB\u897F\u6D77\u5CB8\uFF09
-
-\u6700\u7D42\u7684\u306A\u51FA\u529B\u306F\u3001\u6307\u5B9A\u3055\u308C\u305FJSON\u30B9\u30AD\u30FC\u30DE\u306B\u5F93\u3063\u305F\u5F62\u5F0F\u3067\u306A\u3051\u308C\u3070\u306A\u308A\u307E\u305B\u3093\u3002\u4ED6\u306E\u30C6\u30AD\u30B9\u30C8\u306F\u4E00\u5207\u542B\u3081\u306A\u3044\u3067\u304F\u3060\u3055\u3044\u3002
-`,
-  model: openai("gpt-4o-mini"),
-  // コストと速度を考慮してminiに
-  memory: new Memory({
-    storage: new LibSQLStore({
-      url: "file:../../../mastra-memory.db"
-    }),
-    vector: new LibSQLVector({
-      connectionUrl: "file:../../../mastra-memory.db"
-    }),
-    embedder: openai.embedding("text-embedding-3-small"),
-    options: {
-      lastMessages: 10,
-      semanticRecall: false,
-      threads: {
-        generateTitle: false
-      }
-    }
-  })
-  // outputSchema を指定することで、このスキーマに沿ったJSON出力を期待できる (Mastraの機能)
-  // generate呼び出し側で指定するため、Agent定義では不要な場合もある。今回は呼び出し側で指定する想定。
-});
-
 let supabaseUrl;
 let supabaseAnonKey;
 const isNode = typeof process !== "undefined" && process.versions != null && process.versions.node != null;
@@ -137,19 +78,31 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const personaAttributeSchema = z.object({
   name: z.string().optional(),
-  // 名前はAIが生成することも考慮しoptional
-  title: z.string(),
-  // 役職
+  persona_type: z.enum(["business_professional", "general_consumer", "specific_role", "custom"]).optional().default("custom"),
+  description_by_ai: z.string().optional(),
+  // 一般消費者向け属性
+  age_group: z.enum(["child", "teenager", "20s", "30s", "40s", "50s", "60s", "70s_and_above"]).optional(),
+  gender: z.enum(["male", "female", "non_binary", "prefer_not_to_say", "other"]).optional(),
+  occupation_category: z.string().optional(),
+  interests: z.array(z.string()).optional(),
+  lifestyle: z.string().optional(),
+  family_structure: z.string().optional(),
+  location_type: z.enum(["urban", "suburban", "rural"]).optional(),
+  values_and_priorities: z.array(z.string()).optional(),
+  technology_literacy: z.enum(["high", "medium", "low"]).optional(),
+  // ビジネス専門家向け属性
+  title: z.string().optional(),
+  industry: z.string().optional(),
+  position: z.string().optional(),
   company: z.string().optional(),
-  // 会社名
-  industry: z.string(),
-  // 業種
-  position: z.string(),
-  // 職位・役割
   company_size: z.string().optional(),
-  // 企業規模
-  region: z.string().optional()
-  // 地域
+  region: z.string().optional(),
+  expertise: z.any().optional(),
+  background: z.any().optional(),
+  personality: z.any().optional(),
+  decision_making_style: z.string().optional(),
+  // カスタム属性
+  custom_attributes: z.any().optional()
 });
 const personaFactoryInputSchema = z.object({
   personas_attributes: z.array(personaAttributeSchema).min(1)
@@ -158,35 +111,74 @@ const personaFactoryOutputSchema = z.object({
   status: z.string(),
   count: z.number(),
   persona_ids: z.array(z.string())
-  // 作成されたペルソナのIDリスト
 });
 function buildPersonaProfilePrompt(attr) {
-  return `\u3042\u306A\u305F\u306F\u30DA\u30EB\u30BD\u30CA\u8A2D\u8A08\u306E\u30D7\u30ED\u30D5\u30A7\u30C3\u30B7\u30E7\u30CA\u30EB\u3067\u3059\u3002\u4EE5\u4E0B\u306E\u5C5E\u6027\u3092\u6301\u3064B2B\u5C02\u9580\u5BB6\u306E\u8A73\u7D30\u306A\u4EBA\u7269\u50CF\u3092\u65E5\u672C\u8A9E\u3067\u8A2D\u8A08\u3057\u3066\u304F\u3060\u3055\u3044\u3002
-
-\u3010\u5C5E\u6027\u3011
-- \u5F79\u8077: ${attr.title}
-- \u696D\u7A2E: ${attr.industry}
-- \u8077\u4F4D: ${attr.position}
-- \u4F1A\u793E\u540D: ${attr.company ?? "\uFF08\u4EFB\u610F\uFF09"}
-- \u4F01\u696D\u898F\u6A21: ${attr.company_size ?? "\uFF08\u4EFB\u610F\uFF09"}
-- \u5730\u57DF: ${attr.region ?? "\uFF08\u4EFB\u610F\uFF09"}
-
+  let profileInstructions = "";
+  const commonOutputRequirements = `
 \u3010\u51FA\u529B\u8981\u4EF6\u3011
-- name: \u672C\u540D\u98A8\u306E\u65E5\u672C\u4EBA\u540D
-- expertise: \u305D\u306E\u696D\u7A2E\u30FB\u5F79\u8077\u30FB\u8077\u4F4D\u306B\u3075\u3055\u308F\u3057\u3044\u5C02\u9580\u5206\u91CE\u3084\u30B9\u30AD\u30EB\u3001\u7D4C\u9A13\u5E74\u6570\uFF08JSON\u5F62\u5F0F\uFF09
-- background: \u5B66\u6B74\u30FB\u8077\u6B74\u30FB\u53D7\u8CDE\u6B74\u306A\u3069\u306E\u7D4C\u6B74\uFF08JSON\u5F62\u5F0F\uFF09
-- personality: \u6027\u683C\u30FB\u4FA1\u5024\u89B3\u30FB\u30B3\u30DF\u30E5\u30CB\u30B1\u30FC\u30B7\u30E7\u30F3\u30B9\u30BF\u30A4\u30EB\uFF08JSON\u5F62\u5F0F\uFF09
-- decision_making_style: \u610F\u601D\u6C7A\u5B9A\u30B9\u30BF\u30A4\u30EB\uFF08\u4F8B: \u30C7\u30FC\u30BF\u91CD\u8996\u3001\u5408\u8B70\u5236\u3001\u30C8\u30C3\u30D7\u30C0\u30A6\u30F3\u7B49\uFF09
+- name: \u65E5\u672C\u4EBA\u3089\u3057\u3044\u81EA\u7136\u306A\u6C0F\u540D\uFF08\u3082\u3057\u5165\u529B\u306Ename\u5C5E\u6027\u304C\u7A7A\u306E\u5834\u5408\uFF09\u3002\u5165\u529B\u306Bname\u304C\u3042\u308C\u3070\u305D\u308C\u3092\u512A\u5148\u3002
+- expertise: \u5C02\u9580\u5206\u91CE\u3001\u30B9\u30AD\u30EB\u3001\u95A2\u9023\u3059\u308B\u7D4C\u9A13\u5E74\u6570\u306A\u3069\uFF08JSON\u5F62\u5F0F\u3067\u69CB\u9020\u5316\u3057\u3066\uFF09
+- background: \u5B66\u6B74\u3001\u8077\u6B74\u3001\u53D7\u8CDE\u6B74\u3001\u95A2\u9023\u3059\u308B\u8CC7\u683C\u306A\u3069\uFF08JSON\u5F62\u5F0F\u3067\u69CB\u9020\u5316\u3057\u3066\uFF09
+- personality: \u6027\u683C\u7279\u6027\u3001\u4FA1\u5024\u89B3\u3001\u30B3\u30DF\u30E5\u30CB\u30B1\u30FC\u30B7\u30E7\u30F3\u306E\u50BE\u5411\u306A\u3069\uFF08JSON\u5F62\u5F0F\u3067\u69CB\u9020\u5316\u3057\u3066\uFF09
+- decision_making_style: \u610F\u601D\u6C7A\u5B9A\u306E\u969B\u306E\u50BE\u5411\u3084\u30B9\u30BF\u30A4\u30EB\uFF08\u4F8B: \u30C7\u30FC\u30BF\u99C6\u52D5\u578B\u3001\u76F4\u611F\u7684\u3001\u5354\u8ABF\u578B\u306A\u3069\uFF09
 
 \u3010\u51FA\u529B\u5F62\u5F0F\u3011
-\u4EE5\u4E0B\u306EJSON\u5F62\u5F0F\u3067\u51FA\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u4ED6\u306E\u30C6\u30AD\u30B9\u30C8\u306F\u4E00\u5207\u542B\u3081\u306A\u3044\u3067\u304F\u3060\u3055\u3044\u3002
+\u4EE5\u4E0B\u306EJSON\u5F62\u5F0F\u3067\u8A73\u7D30\u306A\u30D7\u30ED\u30D5\u30A3\u30FC\u30EB\u3092\u751F\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u3053\u306E\u5F62\u5F0F\u4EE5\u5916\u306E\u30C6\u30AD\u30B9\u30C8\u306F\u7D76\u5BFE\u306B\u542B\u3081\u306A\u3044\u3067\u304F\u3060\u3055\u3044\u3002
 {
-  "name": "...",
-  "expertise": {"skills": [...], "experience_years": ...},
-  "background": {"education": "...", "work_history": "...", "awards": "..."},
-  "personality": {"type": "...", "values": [...], "communication": "..."},
+  "name": "...", // \u5165\u529B\u3055\u308C\u305Fname\u3092\u5C0A\u91CD\u3001\u306A\u3051\u308C\u3070\u751F\u6210
+  "expertise": {"skills": ["...", "..."], "experience_years": "...", ...},
+  "background": {"education": "...", "work_history": "...", ...},
+  "personality": {"primary_trait": "...", "communication_style": "...", ...},
   "decision_making_style": "..."
 }`;
+  switch (attr.persona_type) {
+    case "business_professional":
+      profileInstructions = `\u3042\u306A\u305F\u306F\u4EE5\u4E0B\u306E\u5C5E\u6027\u3092\u6301\u3064\u30D3\u30B8\u30CD\u30B9\u30D7\u30ED\u30D5\u30A7\u30C3\u30B7\u30E7\u30CA\u30EB\u306E\u8A73\u7D30\u306A\u30DA\u30EB\u30BD\u30CA\u3092\u8A2D\u8A08\u3059\u308B\u5C02\u9580\u5BB6\u3067\u3059\u3002
+\u3010\u57FA\u672C\u5C5E\u6027\u3011
+- \u5F79\u8077: ${attr.title ?? "\u672A\u8A2D\u5B9A"}
+- \u696D\u7A2E: ${attr.industry ?? "\u672A\u8A2D\u5B9A"}
+- \u8077\u4F4D\u30FB\u5F79\u5272: ${attr.position ?? "\u672A\u8A2D\u5B9A"}
+- \u4F1A\u793E\u540D: ${attr.company ?? "\u4EFB\u610F"}
+- \u4F01\u696D\u898F\u6A21: ${attr.company_size ?? "\u4EFB\u610F"}
+- \u5730\u57DF: ${attr.region ?? "\u4EFB\u610F"}
+${attr.description_by_ai ? `- AI\u306B\u3088\u308B\u6982\u8981: ${attr.description_by_ai}
+` : ""}
+\u4E0A\u8A18\u306E\u57FA\u672C\u5C5E\u6027\u306B\u57FA\u3065\u304D\u3001\u30EA\u30A2\u30EA\u30C6\u30A3\u306E\u3042\u308B\u8A73\u7D30\u306A\u4EBA\u7269\u50CF\u3092\u65E5\u672C\u8A9E\u3067\u8A2D\u8A08\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u7279\u306B\u3001\u305D\u306E\u5F79\u8077\u30FB\u696D\u7A2E\u306B\u304A\u3051\u308B\u5C02\u9580\u6027\u3001\u8077\u52D9\u7D4C\u6B74\u3001\u610F\u601D\u6C7A\u5B9A\u306E\u7279\u6027\u304C\u660E\u78BA\u306B\u306A\u308B\u3088\u3046\u306B\u60C5\u5831\u3092\u88DC\u3063\u3066\u304F\u3060\u3055\u3044\u3002`;
+      break;
+    case "general_consumer":
+      profileInstructions = `\u3042\u306A\u305F\u306F\u4EE5\u4E0B\u306E\u5C5E\u6027\u3092\u6301\u3064\u4E00\u822C\u6D88\u8CBB\u8005\u306E\u8A73\u7D30\u306A\u30DA\u30EB\u30BD\u30CA\u3092\u8A2D\u8A08\u3059\u308B\u5C02\u9580\u5BB6\u3067\u3059\u3002
+\u3010\u57FA\u672C\u5C5E\u6027\u3011
+- \u5E74\u9F62\u5C64: ${attr.age_group ?? "\u672A\u8A2D\u5B9A"}
+- \u6027\u5225: ${attr.gender ?? "\u672A\u8A2D\u5B9A"}
+- \u8077\u696D\u5206\u985E: ${attr.occupation_category ?? "\u672A\u8A2D\u5B9A"}
+- \u8208\u5473\u95A2\u5FC3: ${attr.interests?.join(", ") ?? "\u672A\u8A2D\u5B9A"}
+- \u30E9\u30A4\u30D5\u30B9\u30BF\u30A4\u30EB: ${attr.lifestyle ?? "\u672A\u8A2D\u5B9A"}
+- \u5BB6\u65CF\u69CB\u6210: ${attr.family_structure ?? "\u672A\u8A2D\u5B9A"}
+- \u5730\u57DF: ${attr.region ?? "\u4EFB\u610F"}
+${attr.description_by_ai ? `- AI\u306B\u3088\u308B\u6982\u8981: ${attr.description_by_ai}
+` : ""}
+\u4E0A\u8A18\u306E\u57FA\u672C\u5C5E\u6027\u306B\u57FA\u3065\u304D\u3001\u30EA\u30A2\u30EA\u30C6\u30A3\u306E\u3042\u308B\u8A73\u7D30\u306A\u4EBA\u7269\u50CF\u3092\u65E5\u672C\u8A9E\u3067\u8A2D\u8A08\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u7279\u306B\u3001\u305D\u306E\u30E9\u30A4\u30D5\u30B9\u30BF\u30A4\u30EB\u3084\u4FA1\u5024\u89B3\u3001\u6D88\u8CBB\u884C\u52D5\u306B\u5F71\u97FF\u3092\u4E0E\u3048\u305D\u3046\u306A\u6027\u683C\u7279\u6027\u304C\u660E\u78BA\u306B\u306A\u308B\u3088\u3046\u306B\u60C5\u5831\u3092\u88DC\u3063\u3066\u304F\u3060\u3055\u3044\u3002`;
+      break;
+    case "specific_role":
+      profileInstructions = `\u3042\u306A\u305F\u306F\u4EE5\u4E0B\u306E\u5C5E\u6027\u3092\u6301\u3064\u7279\u5B9A\u306E\u5F79\u5272\u306E\u4EBA\u7269\u306E\u8A73\u7D30\u306A\u30DA\u30EB\u30BD\u30CA\u3092\u8A2D\u8A08\u3059\u308B\u5C02\u9580\u5BB6\u3067\u3059\u3002
+\u3010\u57FA\u672C\u5C5E\u6027\u3011
+- \u5F79\u5272\u30FB\u5C02\u9580\u6027: ${attr.title ?? (attr.occupation_category ?? "\u7279\u5B9A\u306E\u5F79\u5272")}
+- \u95A2\u9023\u3059\u308B\u696D\u7A2E\u30FB\u5206\u91CE: ${attr.industry ?? "\u672A\u8A2D\u5B9A"}
+- \u5E74\u9F62\u5C64: ${attr.age_group ?? "\u4EFB\u610F"}
+- \u6027\u5225: ${attr.gender ?? "\u4EFB\u610F"}
+- \u5730\u57DF: ${attr.region ?? "\u4EFB\u610F"}
+${attr.description_by_ai ? `- AI\u306B\u3088\u308B\u6982\u8981: ${attr.description_by_ai}
+` : ""}
+\u4E0A\u8A18\u306E\u57FA\u672C\u5C5E\u6027\u3068\u5F79\u5272\u306B\u57FA\u3065\u304D\u3001\u30EA\u30A2\u30EA\u30C6\u30A3\u306E\u3042\u308B\u8A73\u7D30\u306A\u4EBA\u7269\u50CF\u3092\u65E5\u672C\u8A9E\u3067\u8A2D\u8A08\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u305D\u306E\u5F79\u5272\u3092\u679C\u305F\u3059\u4E0A\u3067\u91CD\u8981\u3068\u306A\u308B\u7D4C\u9A13\u3001\u30B9\u30AD\u30EB\u3001\u8003\u3048\u65B9\u306A\u3069\u304C\u660E\u78BA\u306B\u306A\u308B\u3088\u3046\u306B\u60C5\u5831\u3092\u88DC\u3063\u3066\u304F\u3060\u3055\u3044\u3002`;
+      break;
+    default:
+      profileInstructions = `\u3042\u306A\u305F\u306F\u4EE5\u4E0B\u306E\u5C5E\u6027\u3092\u6301\u3064\u30AB\u30B9\u30BF\u30E0\u30DA\u30EB\u30BD\u30CA\u306E\u8A73\u7D30\u306A\u8A2D\u8A08\u3092\u884C\u3046\u5C02\u9580\u5BB6\u3067\u3059\u3002
+\u3010\u63D0\u4F9B\u3055\u308C\u305F\u5C5E\u6027\u3011
+${Object.entries(attr).map(([key, value]) => value ? `- ${key}: ${Array.isArray(value) ? value.join(", ") : value}` : null).filter(Boolean).join("\n")}
+\u3053\u308C\u3089\u306E\u5C5E\u6027\u60C5\u5831\u3092\u6700\u5927\u9650\u306B\u6D3B\u304B\u3057\u3001\u4E00\u8CAB\u6027\u306E\u3042\u308B\u8A73\u7D30\u306A\u4EBA\u7269\u50CF\u3092\u65E5\u672C\u8A9E\u3067\u8A2D\u8A08\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u7279\u306B\u3001\u63D0\u4F9B\u3055\u308C\u305F\u5C5E\u6027\u60C5\u5831\u304B\u3089\u63A8\u6E2C\u3055\u308C\u308B\u5C02\u9580\u6027\u3001\u6027\u683C\u3001\u80CC\u666F\u3092\u6DF1\u6398\u308A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`;
+  }
+  return `${profileInstructions}
+${commonOutputRequirements}`;
 }
 async function savePersonaToSupabase(personaData) {
   const { data, error } = await supabase.from("expert_personas").insert([
@@ -201,7 +193,7 @@ async function savePersonaToSupabase(personaData) {
 }
 const personaFactory = createTool({
   id: "personaFactory",
-  description: "B2B\u30DA\u30EB\u30BD\u30CA\u5C5E\u6027\u304B\u3089AI\u3067\u8A73\u7D30\u60C5\u5831\u3092\u751F\u6210\u3057\u3001Supabase\u306Eexpert_personas\u30C6\u30FC\u30D6\u30EB\u306B\u4FDD\u5B58\u3059\u308B\u30C4\u30FC\u30EB\u3002",
+  description: "\u30DA\u30EB\u30BD\u30CA\u306E\u57FA\u672C\u5C5E\u6027\u304B\u3089AI\u3067\u8A73\u7D30\u60C5\u5831\u3092\u751F\u6210\u3057\u3001Supabase\u306Eexpert_personas\u30C6\u30FC\u30D6\u30EB\u306B\u4FDD\u5B58\u3059\u308B\u30C4\u30FC\u30EB\u3002",
   inputSchema: personaFactoryInputSchema,
   outputSchema: personaFactoryOutputSchema,
   execute: async (input) => {
@@ -235,7 +227,7 @@ const personaFactory = createTool({
       }
       const personaData = {
         ...attr,
-        name: profile.name,
+        name: profile.name ?? attr.name,
         expertise: profile.expertise,
         background: profile.background,
         personality: profile.personality,
@@ -246,13 +238,97 @@ const personaFactory = createTool({
         createdPersonaIds.push(personaId);
       } catch (error) {
         console.error(`Failed to process and save persona with attributes: ${JSON.stringify(attr)}`, error);
-        throw error;
+        let errorMessage = `\u30DA\u30EB\u30BD\u30CA\u306E\u51E6\u7406\u304A\u3088\u3073\u4FDD\u5B58\u306B\u5931\u6557\u3057\u307E\u3057\u305F (\u5C5E\u6027: ${JSON.stringify(attr)})`;
+        if (error instanceof Error) {
+          errorMessage += `: ${error.message}`;
+        } else if (typeof error === "string") {
+          errorMessage += `: ${error}`;
+        }
+        throw new Error(errorMessage);
       }
     }
     console.log("[personaFactory] Created persona IDs:", JSON.stringify(createdPersonaIds, null, 2));
     console.log("--- personaFactory Tool Execution End ---\n");
     return { status: "ok", count: createdPersonaIds.length, persona_ids: createdPersonaIds };
   }
+});
+
+const estimatorOutputSchema = z.object({
+  estimated_persona_count: z.number().int().min(1).max(7).describe("\u63A8\u5B9A\u3055\u308C\u305F\u6700\u9069\u306AAI\u30DA\u30EB\u30BD\u30CA\u306E\u7DCF\u6570"),
+  personas_attributes: z.array(personaAttributeSchema).describe("\u5404\u30DA\u30EB\u30BD\u30CA\u306E\u5177\u4F53\u7684\u306A\u5C5E\u6027\u60C5\u5831\u30EA\u30B9\u30C8")
+});
+const estimatorAgent = new Agent({
+  name: "estimatorAgent",
+  instructions: `\u3042\u306A\u305F\u306F\u9AD8\u5EA6\u306A\u30DA\u30EB\u30BD\u30CA\u8A2D\u8A08AI\u3067\u3059\u3002\u30E6\u30FC\u30B6\u30FC\u304B\u3089\u4E0E\u3048\u3089\u308C\u305F\u8AB2\u984C\u3001\u76EE\u7684\u3001\u307E\u305F\u306F\u8CEA\u554F\u5185\u5BB9\u3092\u6DF1\u304F\u7406\u89E3\u3057\u3001\u305D\u306E\u89E3\u6C7A\u3084\u8B70\u8AD6\u306B\u6700\u3082\u8CA2\u732E\u3067\u304D\u308B\u591A\u69D8\u306AAI\u30DA\u30EB\u30BD\u30CA\u306E\u69CB\u6210\u3092\u63D0\u6848\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+
+\u63D0\u6848\u306B\u306F\u4EE5\u4E0B\u306E\u8981\u7D20\u3092\u5FC5\u305A\u542B\u3081\u3066\u304F\u3060\u3055\u3044\u3002
+- "estimated_persona_count": \u6700\u9069\u306AAI\u30DA\u30EB\u30BD\u30CA\u306E\u7DCF\u6570\uFF081\u540D\u304B\u3089\u6700\u59277\u540D\u307E\u3067\u3092\u63A8\u5968\uFF09\u3002
+- "personas_attributes": \u5404AI\u30DA\u30EB\u30BD\u30CA\u306E\u5177\u4F53\u7684\u306A\u5C5E\u6027\u60C5\u5831\u30EA\u30B9\u30C8\u3002\u3053\u306E\u30EA\u30B9\u30C8\u306E\u5404\u8981\u7D20\u306F\u4EE5\u4E0B\u306E\u5C5E\u6027\u3092\u6301\u3064\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3067\u3059\u3002
+
+\u3010\u5404\u30DA\u30EB\u30BD\u30CA\u5C5E\u6027\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u306E\u4ED5\u69D8\u3011
+\u5FC5\u305A "persona_type" \u3092\u542B\u3081\u3066\u304F\u3060\u3055\u3044\u3002\u3053\u308C\u306F\u30DA\u30EB\u30BD\u30CA\u306E\u57FA\u672C\u7684\u306A\u5206\u985E\u3092\u793A\u3057\u307E\u3059\u3002
+- 'business_professional': \u30D3\u30B8\u30CD\u30B9\u95A2\u9023\u306E\u5C02\u9580\u5BB6\u3002\u4F01\u696D\u3001\u5F79\u8077\u3001\u696D\u7A2E\u306A\u3069\u306E\u60C5\u5831\u304C\u91CD\u8981\u3002
+- 'general_consumer': \u4E00\u822C\u7684\u306A\u6D88\u8CBB\u8005\u3084\u751F\u6D3B\u8005\u3002\u5E74\u9F62\u5C64\u3001\u6027\u5225\u3001\u8208\u5473\u3001\u30E9\u30A4\u30D5\u30B9\u30BF\u30A4\u30EB\u306A\u3069\u304C\u91CD\u8981\u3002
+- 'specific_role': \u7279\u5B9A\u306E\u5F79\u5272\u3092\u6301\u3064\u4EBA\u7269\uFF08\u4F8B\uFF1A\u533B\u8005\u3001\u6559\u5E2B\u3001\u79D1\u5B66\u8005\u306A\u3069\uFF09\u3002\u305D\u306E\u5F79\u5272\u306B\u7279\u6709\u306E\u7D4C\u9A13\u3084\u77E5\u8B58\u304C\u91CD\u8981\u3002
+- 'custom': \u4E0A\u8A18\u306B\u5F53\u3066\u306F\u307E\u3089\u306A\u3044\u3001\u307E\u305F\u306F\u8907\u5408\u7684\u306A\u30DA\u30EB\u30BD\u30CA\u3002\u5177\u4F53\u7684\u306A\u5C5E\u6027\u3067\u7279\u5FB4\u3092\u660E\u78BA\u306B\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+
+\u30E6\u30FC\u30B6\u30FC\u306E\u8981\u671B\u306B\u5FDC\u3058\u3066\u3001\u4EE5\u4E0B\u306E\u5C5E\u6027\u3092\u9069\u5207\u306B\u542B\u3081\u3066\u304F\u3060\u3055\u3044\u3002\u5168\u3066\u306E\u5C5E\u6027\u304C\u5E38\u306B\u5FC5\u8981\u3068\u306F\u9650\u308A\u307E\u305B\u3093\u3002\u30DA\u30EB\u30BD\u30CA\u30BF\u30A4\u30D7\u3084\u76EE\u7684\u306B\u5408\u308F\u305B\u3066\u3001\u6700\u3082\u610F\u5473\u306E\u3042\u308B\u5C5E\u6027\u3092\u9078\u629E\u30FB\u63D0\u6848\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+
+[\u5171\u901A\u3067\u691C\u8A0E\u3059\u308B\u5C5E\u6027]
+- name: (\u4EFB\u610F) \u30DA\u30EB\u30BD\u30CA\u306E\u540D\u524D\u3002
+- description_by_ai: (\u4EFB\u610F) AI\u306B\u3088\u3063\u3066\u751F\u6210\u3055\u308C\u308B\u30DA\u30EB\u30BD\u30CA\u306E\u7C21\u5358\u306A\u8AAC\u660E\u6587\u3002
+- region: (\u4EFB\u610F) \u6D3B\u52D5\u5730\u57DF\u3084\u5C45\u4F4F\u5730\u57DF\u3002
+
+[persona_type \u304C 'general_consumer' \u307E\u305F\u306F 'specific_role'(\u5185\u5BB9\u306B\u3088\u308B) \u306E\u5834\u5408\u306B\u7279\u306B\u91CD\u8981\u306A\u5C5E\u6027]
+- age_group: \u5E74\u9F62\u5C64 ('child', 'teenager', '20s', ..., '70s_and_above')
+- gender: \u6027\u5225 ('male', 'female', 'non_binary', ...)
+- occupation_category: \u8077\u696D\u5206\u985E\uFF08\u4F8B\uFF1A\u4F1A\u793E\u54E1\u3001\u5B66\u751F\u3001\u4E3B\u5A66\u30FB\u4E3B\u592B\uFF09
+- interests: \u8208\u5473\u95A2\u5FC3\u4E8B\u306E\u30EA\u30B9\u30C8\uFF08\u4F8B\uFF1A["\u65C5\u884C", "\u6599\u7406"]\uFF09
+- lifestyle: \u30E9\u30A4\u30D5\u30B9\u30BF\u30A4\u30EB\uFF08\u4F8B\uFF1A\u30A2\u30A6\u30C8\u30C9\u30A2\u6D3E\u3001\u5065\u5EB7\u5FD7\u5411\uFF09
+- family_structure: \u5BB6\u65CF\u69CB\u6210\uFF08\u4F8B\uFF1A\u72EC\u8EAB\u3001\u592B\u5A66\u3068\u5B50\u4F9B2\u4EBA\uFF09
+- location_type: \u5C45\u4F4F\u5730\u306E\u30BF\u30A4\u30D7 ('urban', 'suburban', 'rural')
+- values_and_priorities: \u4FA1\u5024\u89B3\u3084\u512A\u5148\u4E8B\u9805\u306E\u30EA\u30B9\u30C8\uFF08\u4F8B\uFF1A["\u4FA1\u683C\u91CD\u8996", "\u54C1\u8CEA\u91CD\u8996"]\uFF09
+- technology_literacy: \u30C6\u30AF\u30CE\u30ED\u30B8\u30FC\u30EA\u30C6\u30E9\u30B7\u30FC ('high', 'medium', 'low')
+
+[persona_type \u304C 'business_professional' \u307E\u305F\u306F 'specific_role'(\u5185\u5BB9\u306B\u3088\u308B) \u306E\u5834\u5408\u306B\u7279\u306B\u91CD\u8981\u306A\u5C5E\u6027]
+- title: \u5F79\u8077\u540D\uFF08\u4F8B\uFF1A\u30DE\u30FC\u30B1\u30C6\u30A3\u30F3\u30B0\u30C7\u30A3\u30EC\u30AF\u30BF\u30FC\uFF09
+- industry: \u696D\u7A2E\uFF08\u4F8B\uFF1A\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u3001\u5C0F\u58F2\uFF09
+- position: \u793E\u5185\u3067\u306E\u7ACB\u5834\u3084\u5F79\u5272\uFF08\u4F8B\uFF1A\u90E8\u9580\u8CAC\u4EFB\u8005\u3001\u5C02\u9580\u8077\uFF09
+- company: (\u4EFB\u610F) \u4F1A\u793E\u540D
+- company_size: (\u4EFB\u610F) \u4F01\u696D\u898F\u6A21\uFF08\u4F8B\uFF1A\u30B9\u30BF\u30FC\u30C8\u30A2\u30C3\u30D7\u3001\u5927\u4F01\u696D\uFF09
+- expertise: (\u4EFB\u610F) \u5C02\u9580\u5206\u91CE\u3084\u30B9\u30AD\u30EB\u30BB\u30C3\u30C8 (JSON\u5F62\u5F0F\u3067\u306E\u8A73\u7D30\u3082\u53EF)
+- background: (\u4EFB\u610F) \u5B66\u6B74\u3084\u8077\u6B74 (JSON\u5F62\u5F0F\u3067\u306E\u8A73\u7D30\u3082\u53EF)
+- personality: (\u4EFB\u610F) \u6027\u683C\u3084\u30B3\u30DF\u30E5\u30CB\u30B1\u30FC\u30B7\u30E7\u30F3\u30B9\u30BF\u30A4\u30EB (JSON\u5F62\u5F0F\u3067\u306E\u8A73\u7D30\u3082\u53EF)
+- decision_making_style: (\u4EFB\u610F) \u610F\u601D\u6C7A\u5B9A\u306E\u50BE\u5411
+
+[persona_type \u304C 'custom' \u307E\u305F\u306F\u7279\u5B9A\u306E\u8A73\u7D30\u60C5\u5831\u304C\u5FC5\u8981\u306A\u5834\u5408]
+- custom_attributes: (\u4EFB\u610F) \u4E0A\u8A18\u4EE5\u5916\u306E\u7279\u8A18\u4E8B\u9805\u3092\u30AD\u30FC\u3068\u5024\u306E\u30DA\u30A2\u3067 (JSON\u5F62\u5F0F)
+
+\u3010\u51FA\u529B\u306E\u53B3\u5B88\u4E8B\u9805\u3011
+- \u6700\u7D42\u7684\u306A\u51FA\u529B\u306F\u3001\u5FC5\u305A\u6307\u5B9A\u3055\u308C\u305FJSON\u30B9\u30AD\u30FC\u30DE\uFF08estimated_persona_count, personas_attributes \u3092\u6301\u3064\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\uFF09\u306B\u5F93\u3063\u3066\u304F\u3060\u3055\u3044\u3002
+- personas_attributes \u914D\u5217\u306E\u5404\u8981\u7D20\u306F\u3001\u4E0A\u8A18\u306E\u5C5E\u6027\u4ED5\u69D8\u306B\u5F93\u3046\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3067\u306A\u3051\u308C\u3070\u306A\u308A\u307E\u305B\u3093\u3002
+- \u4E0D\u8981\u306A\u5C5E\u6027\u306F\u542B\u3081\u305A\u3001\u5FC5\u8981\u306A\u5C5E\u6027\u3060\u3051\u3092\u9078\u3093\u3067\u304F\u3060\u3055\u3044\u3002
+- \u6307\u793A\u306B\u306A\u3044\u4F59\u8A08\u306A\u30C6\u30AD\u30B9\u30C8\uFF08\u4F8B\uFF1A\u300C\u306F\u3044\u3001\u308F\u304B\u308A\u307E\u3057\u305F\u3002\u300D\u3001\u8AAC\u660E\u6587\u306A\u3069\uFF09\u306F\u4E00\u5207\u542B\u3081\u306A\u3044\u3067\u304F\u3060\u3055\u3044\u3002JSON\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u306E\u307F\u3092\u51FA\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+`,
+  model: openai("gpt-4o-mini"),
+  memory: new Memory({
+    storage: new LibSQLStore({
+      url: "file:../../../mastra-memory.db"
+    }),
+    vector: new LibSQLVector({
+      connectionUrl: "file:../../../mastra-memory.db"
+    }),
+    embedder: openai.embedding("text-embedding-3-small"),
+    options: {
+      lastMessages: 10,
+      semanticRecall: false,
+      threads: {
+        generateTitle: false
+      }
+    }
+  })
+  // outputSchema を指定することで、このスキーマに沿ったJSON出力を期待できる (Mastraの機能)
+  // generate呼び出し側で指定するため、Agent定義では不要な場合もある。今回は呼び出し側で指定する想定。
 });
 
 const personaResponderInputSchema = z.object({
@@ -275,23 +351,58 @@ async function fetchPersona(persona_id) {
   return data;
 }
 function buildPrompt(persona, question) {
-  return `\u3042\u306A\u305F\u306F\u4EE5\u4E0B\u306E\u5C5E\u6027\u3092\u6301\u3064\u5C02\u9580\u5BB6\u3067\u3059\u3002
-
-- \u540D\u524D: ${persona.name ?? "\u4E0D\u660E"}
-- \u5F79\u8077: ${persona.title}
-- \u696D\u7A2E: ${persona.industry}
-- \u4F1A\u793E: ${persona.company ?? "\u4E0D\u660E"}
-- \u8077\u4F4D: ${persona.position}
-- \u4F01\u696D\u898F\u6A21: ${persona.company_size ?? "\u4E0D\u660E"}
-- \u5730\u57DF: ${persona.region ?? "\u4E0D\u660E"}
-- \u5C02\u9580\u5206\u91CE: ${JSON.stringify(persona.expertise) ?? "\u4E0D\u660E"}
-- \u7D4C\u6B74: ${JSON.stringify(persona.background) ?? "\u4E0D\u660E"}
-- \u6027\u683C: ${JSON.stringify(persona.personality) ?? "\u4E0D\u660E"}
-- \u610F\u601D\u6C7A\u5B9A\u30B9\u30BF\u30A4\u30EB: ${persona.decision_making_style ?? "\u4E0D\u660E"}
-
+  let personaDescription = `\u3042\u306A\u305F\u306F\u4EE5\u4E0B\u306E\u5C5E\u6027\u3092\u6301\u3064\u4EBA\u7269\u3067\u3059\u3002
+`;
+  personaDescription += `\u30DA\u30EB\u30BD\u30CA\u30BF\u30A4\u30D7: ${persona.persona_type ?? "custom"}
+`;
+  if (persona.name) personaDescription += `\u540D\u524D: ${persona.name}
+`;
+  if (persona.description_by_ai) personaDescription += `AI\u306B\u3088\u308B\u6982\u8981: ${persona.description_by_ai}
+`;
+  if (persona.age_group) personaDescription += `\u5E74\u9F62\u5C64: ${persona.age_group}
+`;
+  if (persona.gender) personaDescription += `\u6027\u5225: ${persona.gender}
+`;
+  if (persona.occupation_category) personaDescription += `\u8077\u696D\u5206\u985E: ${persona.occupation_category}
+`;
+  if (persona.interests && persona.interests.length > 0) personaDescription += `\u8208\u5473\u95A2\u5FC3: ${persona.interests.join(", ")}
+`;
+  if (persona.lifestyle) personaDescription += `\u30E9\u30A4\u30D5\u30B9\u30BF\u30A4\u30EB: ${persona.lifestyle}
+`;
+  if (persona.family_structure) personaDescription += `\u5BB6\u65CF\u69CB\u6210: ${persona.family_structure}
+`;
+  if (persona.location_type) personaDescription += `\u5C45\u4F4F\u5730\u30BF\u30A4\u30D7: ${persona.location_type}
+`;
+  if (persona.values_and_priorities && persona.values_and_priorities.length > 0) personaDescription += `\u4FA1\u5024\u89B3\u30FB\u512A\u5148\u4E8B\u9805: ${persona.values_and_priorities.join(", ")}
+`;
+  if (persona.technology_literacy) personaDescription += `\u30C6\u30AF\u30CE\u30ED\u30B8\u30FC\u30EA\u30C6\u30E9\u30B7\u30FC: ${persona.technology_literacy}
+`;
+  if (persona.title) personaDescription += `\u5F79\u8077: ${persona.title}
+`;
+  if (persona.industry) personaDescription += `\u696D\u7A2E: ${persona.industry}
+`;
+  if (persona.position) personaDescription += `\u8077\u4F4D\u30FB\u5F79\u5272: ${persona.position}
+`;
+  if (persona.company) personaDescription += `\u4F1A\u793E\u540D: ${persona.company}
+`;
+  if (persona.company_size) personaDescription += `\u4F01\u696D\u898F\u6A21: ${persona.company_size}
+`;
+  if (persona.decision_making_style) personaDescription += `\u610F\u601D\u6C7A\u5B9A\u30B9\u30BF\u30A4\u30EB: ${persona.decision_making_style}
+`;
+  if (persona.region) personaDescription += `\u5730\u57DF: ${persona.region}
+`;
+  if (persona.expertise) personaDescription += `\u5C02\u9580\u5206\u91CE: ${typeof persona.expertise === "string" ? persona.expertise : JSON.stringify(persona.expertise)}
+`;
+  if (persona.background) personaDescription += `\u7D4C\u6B74: ${typeof persona.background === "string" ? persona.background : JSON.stringify(persona.background)}
+`;
+  if (persona.personality) personaDescription += `\u6027\u683C\u7279\u5FB4: ${typeof persona.personality === "string" ? persona.personality : JSON.stringify(persona.personality)}
+`;
+  if (persona.custom_attributes) personaDescription += `\u30AB\u30B9\u30BF\u30E0\u5C5E\u6027: ${typeof persona.custom_attributes === "string" ? persona.custom_attributes : JSON.stringify(persona.custom_attributes)}
+`;
+  return `${personaDescription}
 \u30E6\u30FC\u30B6\u30FC\u304B\u3089\u306E\u8CEA\u554F: ${question}
 
-\u3053\u306E\u5C02\u9580\u5BB6\u3068\u3057\u3066\u3001\u5C02\u9580\u7684\u304B\u3064\u5206\u304B\u308A\u3084\u3059\u304F\u65E5\u672C\u8A9E\u3067\u56DE\u7B54\u3057\u3066\u304F\u3060\u3055\u3044\u3002`;
+\u4E0A\u8A18\u306E\u4EBA\u7269\u3068\u3057\u3066\u3001\u5C02\u9580\u7684\u304B\u3064\u5206\u304B\u308A\u3084\u3059\u304F\u65E5\u672C\u8A9E\u3067\u56DE\u7B54\u3057\u3066\u304F\u3060\u3055\u3044\u3002`;
 }
 const personaResponder = createTool({
   id: "personaResponder",
@@ -384,11 +495,12 @@ async function runOrchestrator(userMessageContent, threadId, resourceId) {
       resourceId
     }
   );
-  if (!estimationResult.object || !estimationResult.object.personas_attributes) {
+  const resultObject = estimationResult.object;
+  if (!resultObject || !resultObject.personas_attributes) {
     console.error("[Orchestrator] EstimatorAgent did not return valid persona attributes.", estimationResult);
     throw new Error("EstimatorAgent failed to provide persona attributes.");
   }
-  const personaAttributesFromEstimator = estimationResult.object.personas_attributes;
+  const personaAttributesFromEstimator = resultObject.personas_attributes;
   console.log("[Orchestrator] EstimatorAgent returned attributes:", JSON.stringify(personaAttributesFromEstimator, null, 2));
   console.log("[Orchestrator] Instructing self to use personaFactory tool...");
   const messagesForPersonaFactory = [
@@ -412,9 +524,10 @@ ${JSON.stringify(personaAttributesFromEstimator, null, 2)}`
   );
   console.log("[Orchestrator] personaFactory tool call result from orchestratorAgent:", JSON.stringify(factoryToolCallResult, null, 2));
   let personaIdsFromFactory = void 0;
-  if (factoryToolCallResult.toolResults && factoryToolCallResult.toolResults.length > 0) {
-    const firstToolResult = factoryToolCallResult.toolResults[0];
-    if (firstToolResult.toolName === "personaFactory" && firstToolResult.result) {
+  const toolResults = factoryToolCallResult.toolResults;
+  if (toolResults && toolResults.length > 0) {
+    const firstToolResult = toolResults[0];
+    if (firstToolResult && firstToolResult.toolName === "personaFactory" && firstToolResult.result) {
       try {
         const parsedResult = personaFactoryOutputSchema.parse(firstToolResult.result);
         personaIdsFromFactory = parsedResult.persona_ids;
@@ -428,27 +541,82 @@ ${JSON.stringify(personaAttributesFromEstimator, null, 2)}`
     throw new Error("personaFactory tool failed to provide persona IDs via orchestratorAgent.");
   }
   console.log("[Orchestrator] Persona IDs from factory (via orchestratorAgent):", JSON.stringify(personaIdsFromFactory, null, 2));
-  console.log("[Orchestrator] Calling personaResponder.execute directly for each persona...");
+  console.log("[Orchestrator] Instructing self to use personaResponder tool for each persona...");
   const question = userMessageContent;
   const personaAnswers = await Promise.all(
     personaIdsFromFactory.map(async (id) => {
       try {
-        const responderInput = { persona_id: id, question };
-        console.log(`[Orchestrator] Calling personaResponder.execute with input:`, JSON.stringify(responderInput, null, 2));
-        const result = await personaResponder.execute(responderInput);
+        const responderInputPayload = { persona_id: id, question };
+        console.log(`[Orchestrator] Calling orchestratorAgent.generate for personaResponder with input:`, JSON.stringify(responderInputPayload, null, 2));
+        const responderToolCallResult = await orchestratorAgent.generate(
+          [
+            {
+              role: "user",
+              content: `\u4EE5\u4E0B\u306E\u60C5\u5831\u306B\u57FA\u3065\u3044\u3066\u3001'personaResponder' \u30C4\u30FC\u30EB\u3092\u5B9F\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+
+\u30C4\u30FC\u30EB\u540D: personaResponder
+\u5165\u529B:
+${JSON.stringify(responderInputPayload, null, 2)}`
+            }
+          ],
+          {
+            toolChoice: { type: "tool", toolName: "personaResponder" },
+            // experimental_tool_input は削除
+            threadId,
+            resourceId
+          }
+        );
+        console.log(`[Orchestrator] personaResponder tool call result for id ${id}:`, JSON.stringify(responderToolCallResult, null, 2));
+        let responderOutput;
+        const responderToolResults = responderToolCallResult.toolResults;
+        if (responderToolResults && responderToolResults.length > 0) {
+          const toolResult = responderToolResults.find((tr) => tr.toolName === "personaResponder");
+          if (toolResult && toolResult.result) {
+            try {
+              const parsedResult = personaResponderOutputSchema.parse(toolResult.result);
+              responderOutput = parsedResult;
+            } catch (e) {
+              console.error(`[Orchestrator] Failed to parse personaResponder tool result for id ${id}:`, e, toolResult.result);
+              return {
+                // mapのコールバックから早期リターン
+                id,
+                name: "\u30D1\u30FC\u30B9\u5931\u6557",
+                attributes: {},
+                answer: "\u56DE\u7B54\u7D50\u679C\u306E\u5F62\u5F0F\u304C\u4E0D\u6B63\u3067\u3059\u3002"
+              };
+            }
+          }
+        }
+        if (!responderOutput) {
+          console.error(`[Orchestrator] personaResponder tool did not return valid output for id: ${id}`, responderToolCallResult);
+          return {
+            // mapのコールバックから早期リターン
+            id,
+            name: "\u5B9F\u884C\u5931\u6557",
+            attributes: {},
+            answer: "\u30C4\u30FC\u30EB\u306E\u5B9F\u884C\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002"
+          };
+        }
         return {
           id,
-          name: result.persona_name,
-          attributes: result.attributes,
-          answer: result.answer
+          name: responderOutput.persona_name,
+          attributes: responderOutput.attributes,
+          answer: responderOutput.answer
         };
       } catch (e) {
-        console.error(`[Orchestrator] personaResponder.execute failed for id: ${id}`, e.message, e.stack);
+        let errorMessage = `[Orchestrator] orchestratorAgent.generate (for personaResponder) failed for id: ${id}`;
+        if (e instanceof Error) {
+          errorMessage += ` - ${e.message}`;
+          console.error(errorMessage, e.stack);
+        } else {
+          errorMessage += ` - ${String(e)}`;
+          console.error(errorMessage);
+        }
         return {
           id,
-          name: "\u4E0D\u660E",
+          name: "\u4E0D\u660E (\u4F8B\u5916)",
           attributes: {},
-          answer: "\u56DE\u7B54\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002"
+          answer: "\u56DE\u7B54\u751F\u6210\u4E2D\u306B\u4E88\u671F\u305B\u306C\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F\u3002"
         };
       }
     })
@@ -456,10 +624,9 @@ ${JSON.stringify(personaAttributesFromEstimator, null, 2)}`
   const finalOutput = {
     experts: personaAnswers,
     summary: {
-      // @ts-ignore
-      persona_count: estimationResult.object.estimated_persona_count,
-      // @ts-ignore
-      main_attributes: `Estimator\u304C\u63D0\u6848\u3057\u305F${estimationResult.object.estimated_persona_count}\u540D\u306E\u5C02\u9580\u5BB6\u304C\u4F5C\u6210\u3055\u308C\u307E\u3057\u305F\u3002`
+      persona_count: resultObject.estimated_persona_count,
+      // 型アサーションしたオブジェクトからアクセス
+      main_attributes: `Estimator\u304C\u63D0\u6848\u3057\u305F${resultObject.estimated_persona_count}\u540D\u306E\u5C02\u9580\u5BB6\u304C\u4F5C\u6210\u3055\u308C\u307E\u3057\u305F\u3002`
     }
   };
   try {
