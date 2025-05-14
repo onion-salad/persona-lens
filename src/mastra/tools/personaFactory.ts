@@ -1,4 +1,4 @@
-import { createTool } from "@mastra/core/tools";
+import { createTool, type ToolExecutionContext } from "@mastra/core/tools";
 import { z } from "zod";
 import { supabase } from "../../lib/supabase/client";
 import { openai } from "@ai-sdk/openai";
@@ -14,14 +14,11 @@ const personaAttributeSchema = z.object({
   region: z.string().optional(), // 地域
 });
 
-const personaFactoryInputSchema = z.object({
-  context: z.object({
-    personas_attributes: z.array(personaAttributeSchema) // 属性の配列
-  }).optional(),
-  personas_attributes: z.array(personaAttributeSchema).optional(), // 直接渡される場合
+export const personaFactoryInputSchema = z.object({
+  personas_attributes: z.array(personaAttributeSchema).min(1)
 });
 
-const personaFactoryOutputSchema = z.object({
+export const personaFactoryOutputSchema = z.object({
   status: z.string(),
   count: z.number(),
   persona_ids: z.array(z.string()), // 作成されたペルソナのIDリスト
@@ -79,15 +76,15 @@ export const personaFactory = createTool({
   description: "B2Bペルソナ属性からAIで詳細情報を生成し、Supabaseのexpert_personasテーブルに保存するツール。",
   inputSchema: personaFactoryInputSchema,
   outputSchema: personaFactoryOutputSchema,
-  execute: async (input) => {
+  execute: async (input: ToolExecutionContext<typeof personaFactoryInputSchema>) => {
     console.log("\n--- personaFactory Tool Execution Start ---");
-    console.log("Received validated input:", JSON.stringify(input, null, 2));
+    console.log("Received input (personaFactory execute):", JSON.stringify(input, null, 2));
 
-    const attributesList = input?.context?.personas_attributes || input?.personas_attributes;
+    const attributesList = input.context.personas_attributes;
 
     if (!attributesList || !Array.isArray(attributesList) || attributesList.length === 0) {
-      console.error("Invalid input: 'personas_attributes' array not found or is empty.", input);
-      throw new Error("Invalid input: 'personas_attributes' array not found or is empty.");
+      console.error("Invalid input: 'personas_attributes' array not found or is empty within input.context.", input);
+      throw new Error("Invalid input: 'personas_attributes' array not found or is empty within input.context.");
     }
 
     console.log(`Processing ${attributesList.length} persona attributes...`);
@@ -131,6 +128,7 @@ export const personaFactory = createTool({
       }
     }
 
+    console.log("[personaFactory] Created persona IDs:", JSON.stringify(createdPersonaIds, null, 2));
     console.log("--- personaFactory Tool Execution End ---\n");
     return { status: "ok", count: createdPersonaIds.length, persona_ids: createdPersonaIds };
   },

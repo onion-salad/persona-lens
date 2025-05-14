@@ -4,15 +4,14 @@ import { TABLE_EVALS } from '@mastra/core/storage';
 import { checkEvalStorageFields } from '@mastra/core/utils';
 import { Mastra } from '@mastra/core/mastra';
 import { createLogger } from '@mastra/core/logger';
-import { LibSQLStore } from '@mastra/libsql';
+import { LibSQLStore, LibSQLVector } from '@mastra/libsql';
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { weatherTool } from './tools/d9f39749-633c-4114-82b1-54d6cd6bc2f5.mjs';
+import { weatherTool } from './tools/45ddd152-e76f-483b-b47b-2c278c5db037.mjs';
 import { z } from 'zod';
 import { createTool, isVercelTool } from '@mastra/core/tools';
 import { createClient } from '@supabase/supabase-js';
-import { Agent as Agent$1, Telemetry } from '@mastra/core';
 import crypto, { randomUUID } from 'crypto';
 import { readFile } from 'fs/promises';
 import { join } from 'path/posix';
@@ -20,6 +19,7 @@ import { createServer } from 'http';
 import { Http2ServerRequest } from 'http2';
 import { Readable } from 'stream';
 import { createReadStream, lstatSync } from 'fs';
+import { Telemetry } from '@mastra/core';
 import { RuntimeContext } from '@mastra/core/runtime-context';
 import { ReadableStream as ReadableStream$1 } from 'node:stream/web';
 
@@ -98,8 +98,24 @@ const estimatorAgent = new Agent({
 
 \u6700\u7D42\u7684\u306A\u51FA\u529B\u306F\u3001\u6307\u5B9A\u3055\u308C\u305FJSON\u30B9\u30AD\u30FC\u30DE\u306B\u5F93\u3063\u305F\u5F62\u5F0F\u3067\u306A\u3051\u308C\u3070\u306A\u308A\u307E\u305B\u3093\u3002\u4ED6\u306E\u30C6\u30AD\u30B9\u30C8\u306F\u4E00\u5207\u542B\u3081\u306A\u3044\u3067\u304F\u3060\u3055\u3044\u3002
 `,
-  model: openai("gpt-4o-mini")
+  model: openai("gpt-4o-mini"),
   // コストと速度を考慮してminiに
+  memory: new Memory({
+    storage: new LibSQLStore({
+      url: "file:../../../mastra-memory.db"
+    }),
+    vector: new LibSQLVector({
+      connectionUrl: "file:../../../mastra-memory.db"
+    }),
+    embedder: openai.embedding("text-embedding-3-small"),
+    options: {
+      lastMessages: 10,
+      semanticRecall: false,
+      threads: {
+        generateTitle: false
+      }
+    }
+  })
   // outputSchema を指定することで、このスキーマに沿ったJSON出力を期待できる (Mastraの機能)
   // generate呼び出し側で指定するため、Agent定義では不要な場合もある。今回は呼び出し側で指定する想定。
 });
@@ -136,12 +152,7 @@ const personaAttributeSchema = z.object({
   // 地域
 });
 const personaFactoryInputSchema = z.object({
-  context: z.object({
-    personas_attributes: z.array(personaAttributeSchema)
-    // 属性の配列
-  }).optional(),
-  personas_attributes: z.array(personaAttributeSchema).optional()
-  // 直接渡される場合
+  personas_attributes: z.array(personaAttributeSchema).min(1)
 });
 const personaFactoryOutputSchema = z.object({
   status: z.string(),
@@ -195,11 +206,11 @@ const personaFactory = createTool({
   outputSchema: personaFactoryOutputSchema,
   execute: async (input) => {
     console.log("\n--- personaFactory Tool Execution Start ---");
-    console.log("Received validated input:", JSON.stringify(input, null, 2));
-    const attributesList = input?.context?.personas_attributes || input?.personas_attributes;
+    console.log("Received input (personaFactory execute):", JSON.stringify(input, null, 2));
+    const attributesList = input.context.personas_attributes;
     if (!attributesList || !Array.isArray(attributesList) || attributesList.length === 0) {
-      console.error("Invalid input: 'personas_attributes' array not found or is empty.", input);
-      throw new Error("Invalid input: 'personas_attributes' array not found or is empty.");
+      console.error("Invalid input: 'personas_attributes' array not found or is empty within input.context.", input);
+      throw new Error("Invalid input: 'personas_attributes' array not found or is empty within input.context.");
     }
     console.log(`Processing ${attributesList.length} persona attributes...`);
     const createdPersonaIds = [];
@@ -238,6 +249,7 @@ const personaFactory = createTool({
         throw error;
       }
     }
+    console.log("[personaFactory] Created persona IDs:", JSON.stringify(createdPersonaIds, null, 2));
     console.log("--- personaFactory Tool Execution End ---\n");
     return { status: "ok", count: createdPersonaIds.length, persona_ids: createdPersonaIds };
   }
@@ -254,9 +266,10 @@ const personaResponderOutputSchema = z.object({
   attributes: z.any().optional()
 });
 async function fetchPersona(persona_id) {
+  console.log(`[Supabase] Fetching persona with ID: ${persona_id}`);
   const { data, error } = await supabase.from("expert_personas").select("*").eq("id", persona_id).single();
   if (error) {
-    console.error("[Supabase] Error fetching persona:", error);
+    console.error("[Supabase] Error fetching persona (raw error object):", JSON.stringify(error, null, 2));
     return null;
   }
   return data;
@@ -286,7 +299,14 @@ const personaResponder = createTool({
   inputSchema: personaResponderInputSchema,
   outputSchema: personaResponderOutputSchema,
   execute: async (input) => {
-    const { persona_id, question } = input;
+    console.log("\n--- personaResponder Tool Execution Start ---");
+    console.log("Received input (personaResponder execute):", JSON.stringify(input, null, 2));
+    const persona_id = input.context.persona_id;
+    const question = input.context.question;
+    console.log(`[personaResponder] Extracted persona_id: ${persona_id}, question: ${question}`);
+    if (!persona_id) {
+      throw new Error(`Persona not found for id: ${persona_id}`);
+    }
     const persona = await fetchPersona(persona_id);
     if (!persona) {
       throw new Error(`Persona not found for id: ${persona_id}`);
@@ -324,68 +344,108 @@ const expertProposalSchema = z.object({
   }).describe("\u63D0\u6848\u306E\u30B5\u30DE\u30EA\u30FC")
 });
 
-const orchestratorAgent = new Agent$1({
+const orchestratorAgent = new Agent({
   name: "orchestratorAgent",
   model: openai("gpt-4o"),
-  // gpt-4oに統一
+  memory: new Memory({
+    storage: new LibSQLStore({
+      url: "file:../../../mastra-memory.db"
+    }),
+    vector: new LibSQLVector({
+      connectionUrl: "file:../../../mastra-memory.db"
+    }),
+    embedder: openai.embedding("text-embedding-3-small"),
+    options: {
+      lastMessages: 10,
+      semanticRecall: false,
+      threads: {
+        generateTitle: false
+      }
+    }
+  }),
   tools: { personaFactory, personaResponder },
-  // personaResponderツールも登録
-  instructions: `
-\u3042\u306A\u305F\u306F\u30E6\u30FC\u30B6\u30FC\u306E\u8AB2\u984C\u3084\u8981\u671B\u3092\u5206\u6790\u3057\u3001\u6700\u9069\u306AB2B\u4EEE\u60F3\u5C02\u9580\u5BB6\u30C1\u30FC\u30E0\u3092\u7DE8\u6210\u3057\u3001\u305D\u306E\u5C02\u9580\u5BB6\u30C1\u30FC\u30E0\u306B\u8AB2\u984C\u306B\u3064\u3044\u3066\u8B70\u8AD6\u3055\u305B\u3001\u6700\u7D42\u7684\u306A\u63D0\u6848\u3092\u751F\u6210\u3059\u308B\u30AA\u30FC\u30B1\u30B9\u30C8\u30EC\u30FC\u30BF\u30FC\u3067\u3059\u3002
-\u4E00\u9023\u306E\u51E6\u7406\u3092\u30B9\u30C6\u30C3\u30D7\u30D0\u30A4\u30B9\u30C6\u30C3\u30D7\u3067\u5B9F\u884C\u3057\u307E\u3059\u3002
-
-\u30B9\u30C6\u30C3\u30D71: \u30E6\u30FC\u30B6\u30FC\u306E\u5165\u529B\uFF08\u8AB2\u984C\u3001\u76EE\u7684\u3001\u5E0C\u671B\u3059\u308B\u5C02\u9580\u5BB6\u306E\u30BF\u30A4\u30D7\u306A\u3069\uFF09\u3092\u5206\u6790\u3057\u307E\u3059\u3002
-\u30B9\u30C6\u30C3\u30D72: \u5206\u6790\u7D50\u679C\u3092\u57FA\u306B\u3001\`estimatorAgent\` \u3092\u547C\u3073\u51FA\u3057\u3066\u3001\u6700\u9069\u306AAI\u30DA\u30EB\u30BD\u30CA\u306E\u6570\u3068\u5404\u30DA\u30EB\u30BD\u30CA\u306E\u5C5E\u6027\uFF08title, industry, position\u306A\u3069\uFF09\u3092\u63A8\u5B9A\u3055\u305B\u307E\u3059\u3002
-\u30B9\u30C6\u30C3\u30D73: \`estimatorAgent\` \u306E\u51FA\u529B\u3092\u53D7\u3051\u53D6\u308A\u3001\u305D\u308C\u3092 \`personaFactory\` \u30C4\u30FC\u30EB\u306B\u6E21\u3057\u3066\u3001\u5C02\u9580\u5BB6\u30DA\u30EB\u30BD\u30CA\u3092\u751F\u6210\u30FB\u30C7\u30FC\u30BF\u30D9\u30FC\u30B9\u306B\u4FDD\u5B58\u3055\u305B\u307E\u3059\u3002
-\u30B9\u30C6\u30C3\u30D74: \u751F\u6210\u3055\u308C\u305F\u30DA\u30EB\u30BD\u30CA\u306B\u8AB2\u984C\u3092\u6295\u3052\u3001\`personaResponder\` \u30C4\u30FC\u30EB\u3067\u56DE\u7B54\u3092\u53D6\u5F97\u3057\u3001\u8868\u5F62\u5F0F\u3067\u307E\u3068\u3081\u307E\u3059\u3002
-
-\u6700\u7D42\u7684\u306A\u51FA\u529B\u306F\u3001\u30D5\u30ED\u30F3\u30C8\u30A8\u30F3\u30C9\u304C\u53D7\u3051\u53D6\u308B\u305F\u3081\u306E \`expertProposalSchema\` \u306B\u5F93\u3063\u305FJSON\u5F62\u5F0F\u3067\u306A\u3051\u308C\u3070\u306A\u308A\u307E\u305B\u3093\u3002
-\`experts\` \u306B\u306F\u30DA\u30EB\u30BD\u30CA\u306E\u57FA\u672C\u60C5\u5831\u3068\u56DE\u7B54\u3092\u542B\u3081\u3001\`summary\` \u306B\u306F\u51E6\u7406\u306E\u6982\u8981\u3092\u542B\u3081\u3066\u304F\u3060\u3055\u3044\u3002
+  instructions: `\u3042\u306A\u305F\u306FB2B\u4EEE\u60F3\u5C02\u9580\u5BB6\u4F1A\u8B70\u306E\u30AA\u30FC\u30B1\u30B9\u30C8\u30EC\u30FC\u30BF\u30FC\u3067\u3059\u3002
+\u30E6\u30FC\u30B6\u30FC\u306E\u8981\u671B\u306B\u5FDC\u3058\u3066\u3001\u4EE5\u4E0B\u306E\u30B9\u30C6\u30C3\u30D7\u3067\u51E6\u7406\u3092\u5B9F\u884C\u3057\u307E\u3059\u3002
+1. \u307E\u305A\u3001'estimatorAgent' \u306B\u30E6\u30FC\u30B6\u30FC\u306E\u8981\u671B\u3092\u4F1D\u3048\u3001\u6700\u9069\u306A\u30DA\u30EB\u30BD\u30CA\u306E\u5C5E\u6027\u30EA\u30B9\u30C8\u3092\u53D6\u5F97\u3057\u307E\u3059\u3002
+2. \u6B21\u306B\u3001\u53D6\u5F97\u3057\u305F\u30DA\u30EB\u30BD\u30CA\u5C5E\u6027\u30EA\u30B9\u30C8\u3092 'personaFactory' \u30C4\u30FC\u30EB\u306B 'personas_attributes' \u3068\u3044\u3046\u30AD\u30FC\u3067\u76F4\u63A5\u6E21\u3057\u3001\u30DA\u30EB\u30BD\u30CA\u3092\u4F5C\u6210\u3057\u3066\u3001\u305D\u306EID\u306E\u30EA\u30B9\u30C8\u3092\u53D6\u5F97\u3057\u307E\u3059\u3002
+3. \u6700\u5F8C\u306B\u3001\u30E6\u30FC\u30B6\u30FC\u304B\u3089\u306E\u5F53\u521D\u306E\u8CEA\u554F\u3068\u3001\u4F5C\u6210\u3055\u308C\u305F\u5404\u30DA\u30EB\u30BD\u30CAID\u3092 'personaResponder' \u30C4\u30FC\u30EB\u306B\u6E21\u3057\u3001\u5404\u30DA\u30EB\u30BD\u30CA\u304B\u3089\u306E\u56DE\u7B54\u3092\u53D6\u5F97\u3057\u307E\u3059\u3002
+4. \u5168\u3066\u306E\u30DA\u30EB\u30BD\u30CA\u304B\u3089\u306E\u56DE\u7B54\u3092\u307E\u3068\u3081\u3066\u3001\u30E6\u30FC\u30B6\u30FC\u306B\u63D0\u793A\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+\u30E6\u30FC\u30B6\u30FC\u306E\u5165\u529B\u306F\u6700\u521D\u306E\u8981\u671B\u3084\u8CEA\u554F\u3067\u3059\u3002\u6700\u7D42\u7684\u306A\u51FA\u529B\u306F expertProposalSchema \u306B\u5F93\u3063\u3066\u304F\u3060\u3055\u3044\u3002
 `
 });
-async function runOrchestrator(userMessageContent) {
-  console.log("[Orchestrator] Starting orchestration with user message:", userMessageContent);
+async function runOrchestrator(userMessageContent, threadId, resourceId) {
+  console.log("[Orchestrator] Starting orchestration with user message:", userMessageContent, { threadId, resourceId });
   console.log("[Orchestrator] Calling EstimatorAgent...");
   const estimationResult = await estimatorAgent.generate(
     [{ role: "user", content: userMessageContent }],
-    // ユーザーメッセージを渡す
     {
-      output: estimatorOutputSchema
-      // Zodスキーマを指定して構造化出力を得る
+      output: estimatorOutputSchema,
+      threadId,
+      resourceId
     }
   );
   if (!estimationResult.object || !estimationResult.object.personas_attributes) {
     console.error("[Orchestrator] EstimatorAgent did not return valid persona attributes.", estimationResult);
     throw new Error("EstimatorAgent failed to provide persona attributes.");
   }
-  const personaAttributes = estimationResult.object.personas_attributes;
-  console.log("[Orchestrator] EstimatorAgent returned attributes:", JSON.stringify(personaAttributes, null, 2));
-  console.log("[Orchestrator] Calling personaFactory tool...");
-  const factoryResult = await personaFactory.execute({
-    context: {
-      personas_attributes: personaAttributes
+  const personaAttributesFromEstimator = estimationResult.object.personas_attributes;
+  console.log("[Orchestrator] EstimatorAgent returned attributes:", JSON.stringify(personaAttributesFromEstimator, null, 2));
+  console.log("[Orchestrator] Instructing self to use personaFactory tool...");
+  const messagesForPersonaFactory = [
+    {
+      role: "user",
+      content: `\u4EE5\u4E0B\u306E\u5C5E\u6027\u60C5\u5831\u30EA\u30B9\u30C8\u3092\u4F7F\u3063\u3066 'personaFactory' \u30C4\u30FC\u30EB\u3067\u30DA\u30EB\u30BD\u30CA\u3092\u4F5C\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u30C4\u30FC\u30EB\u3078\u306E\u5165\u529B\u306F 'personas_attributes' \u3068\u3044\u3046\u30AD\u30FC\u306B\u3053\u306E\u5C5E\u6027\u60C5\u5831\u30EA\u30B9\u30C8\u3092\u8A2D\u5B9A\u3057\u305F\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3067\u3059\u3002
+
+\u5C5E\u6027\u60C5\u5831\u30EA\u30B9\u30C8:
+${JSON.stringify(personaAttributesFromEstimator, null, 2)}`
     }
-  });
-  if (factoryResult.status !== "ok" || !factoryResult.persona_ids) {
-    console.error("[Orchestrator] personaFactory tool execution failed or did not return IDs.", factoryResult);
-    throw new Error("personaFactory tool failed.");
+  ];
+  const factoryToolCallResult = await orchestratorAgent.generate(
+    messagesForPersonaFactory,
+    {
+      toolChoice: { type: "tool", toolName: "personaFactory" },
+      // ★ ツールが期待する入力の型を experimental_tool_input で明示することも検討できるが、まずはプロンプトで対応
+      // experimental_tool_input: { personaFactory: personaFactoryInputSchema }, // スキーマを渡す (もしこのオプションがあれば)
+      threadId,
+      resourceId
+    }
+  );
+  console.log("[Orchestrator] personaFactory tool call result from orchestratorAgent:", JSON.stringify(factoryToolCallResult, null, 2));
+  let personaIdsFromFactory = void 0;
+  if (factoryToolCallResult.toolResults && factoryToolCallResult.toolResults.length > 0) {
+    const firstToolResult = factoryToolCallResult.toolResults[0];
+    if (firstToolResult.toolName === "personaFactory" && firstToolResult.result) {
+      try {
+        const parsedResult = personaFactoryOutputSchema.parse(firstToolResult.result);
+        personaIdsFromFactory = parsedResult.persona_ids;
+      } catch (e) {
+        console.error("[Orchestrator] Failed to parse personaFactory tool result:", e, firstToolResult.result);
+      }
+    }
   }
-  console.log("[Orchestrator] personaFactory tool returned persona IDs:", factoryResult.persona_ids);
+  if (!personaIdsFromFactory || personaIdsFromFactory.length === 0) {
+    console.error("[Orchestrator] personaFactory tool did not return valid persona IDs via orchestratorAgent.", factoryToolCallResult);
+    throw new Error("personaFactory tool failed to provide persona IDs via orchestratorAgent.");
+  }
+  console.log("[Orchestrator] Persona IDs from factory (via orchestratorAgent):", JSON.stringify(personaIdsFromFactory, null, 2));
+  console.log("[Orchestrator] Calling personaResponder.execute directly for each persona...");
   const question = userMessageContent;
   const personaAnswers = await Promise.all(
-    factoryResult.persona_ids.map(async (persona_id) => {
+    personaIdsFromFactory.map(async (id) => {
       try {
-        const result = await personaResponder.execute({ persona_id, question });
+        const responderInput = { persona_id: id, question };
+        console.log(`[Orchestrator] Calling personaResponder.execute with input:`, JSON.stringify(responderInput, null, 2));
+        const result = await personaResponder.execute(responderInput);
         return {
-          id: persona_id,
+          id,
           name: result.persona_name,
           attributes: result.attributes,
           answer: result.answer
         };
       } catch (e) {
-        console.error(`[Orchestrator] personaResponder failed for id: ${persona_id}`, e);
+        console.error(`[Orchestrator] personaResponder.execute failed for id: ${id}`, e.message, e.stack);
         return {
-          id: persona_id,
+          id,
           name: "\u4E0D\u660E",
           attributes: {},
           answer: "\u56DE\u7B54\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002"
@@ -451,7 +511,9 @@ async function handleGenerateExpertProposal(ctx) {
       return ctx.json({ message: "User message content is required" }, 400);
     }
     logger?.info(`Received request for expert proposal with message: "${userMessage.content.substring(0, 100)}..."`);
-    const result = await runOrchestrator(userMessage.content);
+    const threadId = crypto.randomUUID();
+    const resourceId = crypto.randomUUID();
+    const result = await runOrchestrator(userMessage.content, threadId, resourceId);
     logger?.info("Orchestration process completed successfully.");
     return ctx.json(result, 200);
   } catch (error) {

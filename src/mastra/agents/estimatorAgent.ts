@@ -1,6 +1,9 @@
 import { Agent } from "@mastra/core/agent";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
+import { Memory } from "@mastra/memory";
+import { LibSQLStore } from '@mastra/libsql';
+import { LibSQLVector } from '@mastra/libsql';
 
 // EstimatorAgentの出力スキーマ (personaFactoryの入力と整合性を取る)
 const estimatedPersonaAttributeSchema = z.object({
@@ -43,6 +46,22 @@ export const estimatorAgent = new Agent({
 最終的な出力は、指定されたJSONスキーマに従った形式でなければなりません。他のテキストは一切含めないでください。
 `,
   model: openai("gpt-4o-mini"), // コストと速度を考慮してminiに
+  memory: new Memory({
+    storage: new LibSQLStore({
+      url: 'file:../../../mastra-memory.db'
+    }),
+    vector: new LibSQLVector({
+      connectionUrl: 'file:../../../mastra-memory.db'
+    }),
+    embedder: openai.embedding('text-embedding-3-small'),
+    options: {
+      lastMessages: 10,
+      semanticRecall: false,
+      threads: {
+        generateTitle: false
+      }
+    }
+  }),
   // outputSchema を指定することで、このスキーマに沿ったJSON出力を期待できる (Mastraの機能)
   // generate呼び出し側で指定するため、Agent定義では不要な場合もある。今回は呼び出し側で指定する想定。
 }); 

@@ -1,4 +1,4 @@
-import { createTool } from "@mastra/core/tools";
+import { createTool, type ToolExecutionContext } from "@mastra/core/tools";
 import { z } from "zod";
 import { supabase } from "../../lib/supabase/client";
 import { openai } from "@ai-sdk/openai";
@@ -32,13 +32,14 @@ const personaResponderOutputSchema = z.object({
 
 // Supabaseからペルソナ情報を取得
 async function fetchPersona(persona_id: string): Promise<PersonaAttributes | null> {
+  console.log(`[Supabase] Fetching persona with ID: ${persona_id}`);
   const { data, error } = await supabase
     .from('expert_personas')
     .select('*')
     .eq('id', persona_id)
     .single();
   if (error) {
-    console.error('[Supabase] Error fetching persona:', error);
+    console.error('[Supabase] Error fetching persona (raw error object):', JSON.stringify(error, null, 2));
     return null;
   }
   return data;
@@ -54,8 +55,18 @@ export const personaResponder = createTool({
   description: "指定したペルソナIDの属性を元に、GPT APIでそのペルソナとして質問に回答するツール。",
   inputSchema: personaResponderInputSchema,
   outputSchema: personaResponderOutputSchema,
-  execute: async (input) => {
-    const { persona_id, question } = input;
+  execute: async (input: ToolExecutionContext<typeof personaResponderInputSchema>) => {
+    console.log("\n--- personaResponder Tool Execution Start ---");
+    console.log("Received input (personaResponder execute):", JSON.stringify(input, null, 2));
+
+    const persona_id = input.context.persona_id;
+    const question = input.context.question;
+
+    console.log(`[personaResponder] Extracted persona_id: ${persona_id}, question: ${question}`);
+
+    if (!persona_id) {
+      throw new Error(`Persona not found for id: ${persona_id}`);
+    }
     const persona = await fetchPersona(persona_id);
     if (!persona) {
       throw new Error(`Persona not found for id: ${persona_id}`);

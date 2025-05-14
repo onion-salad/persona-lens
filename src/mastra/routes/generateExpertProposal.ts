@@ -3,6 +3,7 @@ import { type Context } from "hono"; // HonoのContextを仮定してインポ�
 // orchestratorAgentの直接呼び出しは不要になる
 // import { orchestratorAgent } from "../agents/orchestratorAgent";
 import { runOrchestrator } from "../agents/orchestratorAgent"; // runOrchestratorをインポート
+import crypto from 'crypto'; // cryptoモジュールをインポート
 // expertProposalSchema は runOrchestrator 内部で使われるため、ここでの直接利用は不要になる場合がある
 
 // リクエストボディのスキーマ
@@ -61,7 +62,10 @@ export async function handleGenerateExpertProposal(ctx: Context): Promise<Respon
     logger?.info(`Received request for expert proposal with message: \"${userMessage.content.substring(0, 100)}...\"`);
 
     // runOrchestrator を呼び出し、結果を受け取る
-    const result = await runOrchestrator(userMessage.content);
+    // threadIdとresourceIdを生成して渡す
+    const threadId = crypto.randomUUID();
+    const resourceId = crypto.randomUUID(); // 本来はユーザーIDなどに紐づける
+    const result = await runOrchestrator(userMessage.content, threadId, resourceId);
 
     logger?.info('Orchestration process completed successfully.');
 
