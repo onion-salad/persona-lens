@@ -8,7 +8,7 @@ import { LibSQLStore, LibSQLVector } from '@mastra/libsql';
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { weatherTool } from './tools/5ba50b40-f542-4f93-b073-f5589a2f6a24.mjs';
+import { weatherTool } from './tools/be209f75-feac-46a6-86cd-24a3616cb538.mjs';
 import { z } from 'zod';
 import { createTool, Tool, isVercelTool } from '@mastra/core/tools';
 import { createClient } from '@supabase/supabase-js';
@@ -82,6 +82,7 @@ const personaAttributeSchema = z.object({
   persona_type: z.string().optional(),
   description_by_ai: z.string().optional(),
   additional_notes: z.string().optional(),
+  // 追加
   // 一般消費者向け属性
   age_group: z.string().optional(),
   gender: z.string().optional(),
@@ -105,9 +106,8 @@ const personaAttributeSchema = z.object({
   decision_making_style: z.string().optional(),
   // カスタム属性 (遺伝情報、健康状態、資産状況などを含むことを想定)
   custom_attributes: z.record(z.string(), z.any()).optional(),
-  // タイムスタンプ
-  created_at: z.string().datetime().optional(),
-  updated_at: z.string().datetime().optional()
+  update_mode: z.enum(["ai_assisted_update", "direct_update"]).optional()
+  // 追加
 });
 const personaFactoryInputSchema = z.object({
   personas_attributes: z.array(personaAttributeSchema).min(1)
@@ -117,7 +117,7 @@ const personaFactoryOutputSchema = z.object({
   count: z.number(),
   persona_ids: z.array(z.string())
 });
-function buildPersonaProfilePrompt(attr) {
+function buildPersonaProfilePrompt(attr, isUpdateMode = false, existingPersonaForContext) {
   const commonOutputRequirements = `
 \u3010\u51FA\u529B\u8981\u4EF6\u3011
 - name: \u65E5\u672C\u4EBA\u3089\u3057\u3044\u81EA\u7136\u306A\u6C0F\u540D\uFF08\u3082\u3057\u5165\u529B\u306Ename\u5C5E\u6027\u304C\u7A7A\u306E\u5834\u5408\uFF09\u3002\u5165\u529B\u306Bname\u304C\u3042\u308C\u3070\u305D\u308C\u3092\u512A\u5148\u3002
@@ -125,19 +125,20 @@ function buildPersonaProfilePrompt(attr) {
 - background: \u5B66\u6B74\u3001\u8077\u6B74\u3001\u53D7\u8CDE\u6B74\u3001\u95A2\u9023\u3059\u308B\u8CC7\u683C\u306A\u3069\uFF08JSON\u5F62\u5F0F\u3067\u69CB\u9020\u5316\u3057\u3066\uFF09
 - personality: \u6027\u683C\u7279\u6027\u3001\u4FA1\u5024\u89B3\u3001\u30B3\u30DF\u30E5\u30CB\u30B1\u30FC\u30B7\u30E7\u30F3\u306E\u50BE\u5411\u306A\u3069\uFF08JSON\u5F62\u5F0F\u3067\u69CB\u9020\u5316\u3057\u3066\uFF09
 - decision_making_style: \u610F\u601D\u6C7A\u5B9A\u306E\u969B\u306E\u50BE\u5411\u3084\u30B9\u30BF\u30A4\u30EB\uFF08\u4F8B: \u30C7\u30FC\u30BF\u99C6\u52D5\u578B\u3001\u76F4\u611F\u7684\u3001\u5354\u8ABF\u578B\u306A\u3069\uFF09
-- description_by_ai: \u4E0A\u8A18\u306E\u60C5\u5831\u3092\u7DCF\u5408\u3057\u3001\u3053\u306E\u4EBA\u7269\u304C\u3069\u306E\u3088\u3046\u306A\u4EBA\u7269\u3067\u3042\u308B\u304B\u3092\u8A73\u7D30\u304B\u3064\u5177\u4F53\u7684\u306B\u8A18\u8FF0\u3057\u305F\u81EA\u7136\u306A\u65E5\u672C\u8A9E\u306E\u6587\u7AE0\u3002\u6700\u5927300\u5B57\u7A0B\u5EA6\u3002
+- description_by_ai: \u4E0A\u8A18\u306E\u60C5\u5831\u3092\u7DCF\u5408\u3057\u3001\u3053\u306E\u4EBA\u7269\u304C\u3069\u306E\u3088\u3046\u306A\u4EBA\u7269\u3067\u3042\u308B\u304B\u3092\u8A73\u7D30\u304B\u3064\u5177\u4F53\u7684\u306B\u8A18\u8FF0\u3057\u305F\u81EA\u7136\u306A\u65E5\u672C\u8A9E\u306E\u6587\u7AE0\u3002\u6700\u5927300\u5B57\u7A0B\u5EA6\u3002\u3053\u308C\u306F\u5FC5\u305A\u63D0\u4F9B\u3057\u3066\u304F\u3060\u3055\u3044\u3002
 
 \u3010\u51FA\u529B\u5F62\u5F0F\u3011
 \u4EE5\u4E0B\u306EJSON\u5F62\u5F0F\u3067\u8A73\u7D30\u306A\u30D7\u30ED\u30D5\u30A3\u30FC\u30EB\u3092\u751F\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u3053\u306E\u5F62\u5F0F\u4EE5\u5916\u306E\u30C6\u30AD\u30B9\u30C8\u306F\u7D76\u5BFE\u306B\u542B\u3081\u306A\u3044\u3067\u304F\u3060\u3055\u3044\u3002
 {
-  "name": "...", // \u5165\u529B\u3055\u308C\u305Fname\u3092\u5C0A\u91CD\u3001\u306A\u3051\u308C\u3070\u751F\u6210
+  "name": "...",
   "expertise": {"skills": [...], "experience_years": "...", /* \u305D\u306E\u4ED6\u95A2\u9023\u60C5\u5831 */},
   "background": {"education": "...", "work_history": "...", /* \u305D\u306E\u4ED6\u95A2\u9023\u60C5\u5831 */},
   "personality": {"primary_trait": "...", "communication_style": "...", /* \u305D\u306E\u4ED6\u95A2\u9023\u60C5\u5831 */},
   "decision_making_style": "...",
-  "description_by_ai": "..." // AI\u306B\u3088\u308B\u30DA\u30EB\u30BD\u30CA\u306E\u5305\u62EC\u7684\u306A\u8AAC\u660E\u6587
+  "description_by_ai": "..."
 }`;
   const providedAttributesList = Object.entries(attr).map(([key, value]) => {
+    if (key === "id" || key === "update_mode") return null;
     if (value === void 0 || value === null || typeof value === "string" && value.trim() === "") return null;
     if (Array.isArray(value)) {
       return value.length > 0 ? `- ${key}: ${value.join(", ")}` : null;
@@ -154,17 +155,35 @@ function buildPersonaProfilePrompt(attr) {
     }
     return null;
   }).filter(Boolean);
-  const providedAttributes = providedAttributesList.length > 0 ? providedAttributesList.join("\\n") : "\u5C5E\u6027\u60C5\u5831\u306F\u63D0\u4F9B\u3055\u308C\u3066\u3044\u307E\u305B\u3093\u304C\u3001\u4E00\u822C\u7684\u306A\u4EBA\u7269\u50CF\u3092\u60F3\u50CF\u3057\u3066\u4F5C\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002";
-  const ethicalConsideration = attr.custom_attributes ? "\\n\\n\u3010\u91CD\u8981: \u502B\u7406\u7684\u914D\u616E\u3011\\ncustom_attributes\u306B\u306F\u907A\u4F1D\u60C5\u5831\u3001\u5065\u5EB7\u72B6\u614B\u3001\u8CC7\u7523\u72B6\u6CC1\u306A\u3069\u306E\u6A5F\u5BC6\u60C5\u5831\u304C\u542B\u307E\u308C\u308B\u53EF\u80FD\u6027\u304C\u3042\u308A\u307E\u3059\u3002\u3053\u308C\u3089\u306E\u60C5\u5831\u3092\u6271\u3046\u969B\u306F\u3001\u500B\u4EBA\u306E\u30D7\u30E9\u30A4\u30D0\u30B7\u30FC\u3092\u5C0A\u91CD\u3057\u3001\u5DEE\u5225\u3084\u504F\u898B\u3092\u52A9\u9577\u3057\u306A\u3044\u3088\u3046\u6700\u5927\u9650\u306E\u6CE8\u610F\u3092\u6255\u3063\u3066\u304F\u3060\u3055\u3044\u3002\u751F\u6210\u3055\u308C\u308B\u30D7\u30ED\u30D5\u30A3\u30FC\u30EB\u3067\u306F\u3001\u3053\u308C\u3089\u306E\u60C5\u5831\u3092\u76F4\u63A5\u7684\u30FB\u9732\u9AA8\u306B\u8868\u73FE\u3059\u308B\u306E\u3067\u306F\u306A\u304F\u3001\u4EBA\u7269\u306E\u80CC\u666F\u3084\u7279\u6027\u3068\u3057\u3066\u3001\u3088\u308A\u62BD\u8C61\u7684\u304B\u3064\u914D\u616E\u306E\u3042\u308B\u5F62\u3067\u8A00\u53CA\u3059\u308B\u306B\u7559\u3081\u3066\u304F\u3060\u3055\u3044\u3002" : "";
-  const profileInstructions = `\u3042\u306A\u305F\u306F\u4EE5\u4E0B\u306E\u5C5E\u6027\u60C5\u5831\u3092\u6301\u3064\u4EBA\u7269\u306E\u8A73\u7D30\u306A\u30DA\u30EB\u30BD\u30CA\u3092\u8A2D\u8A08\u3059\u308B\u5C02\u9580\u5BB6\u3067\u3059\u3002
+  const providedAttributesForPrompt = providedAttributesList.length > 0 ? providedAttributesList.join("\\n") : "\u5C5E\u6027\u60C5\u5831\u306F\u63D0\u4F9B\u3055\u308C\u3066\u3044\u307E\u305B\u3093\u3002";
+  const ethicalConsideration = attr.custom_attributes ? "\\n\\n\u3010\u91CD\u8981: \u502B\u7406\u7684\u914D\u616E\u3011\\ncustom_attributes\u306B\u306F\u6A5F\u5BC6\u60C5\u5831\u304C\u542B\u307E\u308C\u308B\u53EF\u80FD\u6027\u304C\u3042\u308A\u307E\u3059\u3002\u3053\u308C\u3089\u306E\u60C5\u5831\u3092\u6271\u3046\u969B\u306F\u30D7\u30E9\u30A4\u30D0\u30B7\u30FC\u3092\u5C0A\u91CD\u3057\u3001\u5DEE\u5225\u3084\u504F\u898B\u3092\u52A9\u9577\u3057\u306A\u3044\u3088\u3046\u6CE8\u610F\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u30D7\u30ED\u30D5\u30A3\u30FC\u30EB\u3067\u306F\u3001\u3053\u308C\u3089\u306E\u60C5\u5831\u3092\u76F4\u63A5\u7684\u30FB\u9732\u9AA8\u306B\u8868\u73FE\u305B\u305A\u3001\u4EBA\u7269\u306E\u7279\u6027\u3068\u3057\u3066\u62BD\u8C61\u7684\u304B\u3064\u914D\u616E\u306E\u3042\u308B\u5F62\u3067\u8A00\u53CA\u3057\u3066\u304F\u3060\u3055\u3044\u3002" : "";
+  let profileInstructions;
+  if (isUpdateMode && existingPersonaForContext) {
+    const existingContextString = Object.entries(existingPersonaForContext).filter(([key, value]) => value !== void 0 && value !== null && !["id", "created_at", "updated_at", "update_mode"].includes(key)).map(([key, value]) => `- ${key} (\u65E2\u5B58): ${typeof value === "object" ? JSON.stringify(value) : value}`).join("\\n");
+    profileInstructions = `\u3042\u306A\u305F\u306F\u65E2\u5B58\u30DA\u30EB\u30BD\u30CA\u306E\u60C5\u5831\u3092\u66F4\u65B0\u3059\u308B\u5C02\u9580\u5BB6\u3067\u3059\u3002
+\u4EE5\u4E0B\u306E\u30DA\u30EB\u30BD\u30CA\u306B\u3064\u3044\u3066\u3001\u63D0\u4F9B\u3055\u308C\u305F\u300C\u76EE\u6A19\u3068\u3059\u308B\u5C5E\u6027\u30BB\u30C3\u30C8\u300D\u306B\u57FA\u3065\u3044\u3066\u3001\u7279\u306B\u300Cdescription_by_ai\u300D\u3092\u518D\u751F\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+\u307E\u305F\u3001\u300Cexpertise\u300D\u300Cbackground\u300D\u300Cpersonality\u300D\u300Cdecision_making_style\u300D\u3068\u3044\u3063\u305FAI\u7BA1\u7406\u9805\u76EE\u3082\u3001\u300C\u76EE\u6A19\u3068\u3059\u308B\u5C5E\u6027\u30BB\u30C3\u30C8\u300D\u3068\u77DB\u76FE\u304C\u306A\u3044\u3088\u3046\u306B\u8ABF\u6574\u30FB\u751F\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+
+\u3010\u65E2\u5B58\u30DA\u30EB\u30BD\u30CA\u306E\u4E3B\u306A\u60C5\u5831 (\u53C2\u8003)\u3011
+${existingContextString || "\u65E2\u5B58\u60C5\u5831\u306A\u3057"}
+
+\u3010\u76EE\u6A19\u3068\u3059\u308B\u5C5E\u6027\u30BB\u30C3\u30C8 (\u4ECA\u56DE\u9069\u7528\u3059\u308B\u5185\u5BB9)\u3011
+${providedAttributesForPrompt}
+${ethicalConsideration}
+
+AI\u306E\u4E3B\u306A\u30BF\u30B9\u30AF\u306F\u3001\u300C\u76EE\u6A19\u3068\u3059\u308B\u5C5E\u6027\u30BB\u30C3\u30C8\u300D\u3092\u5B8C\u5168\u306B\u53CD\u6620\u3057\u305F\u300Cdescription_by_ai\u300D\u3092\u751F\u6210\u3059\u308B\u3053\u3068\u3067\u3059\u3002
+\u305D\u306E\u4ED6\u306EAI\u7BA1\u7406\u9805\u76EE\uFF08name, expertise, background, personality, decision_making_style\uFF09\u3082\u3001\u30E6\u30FC\u30B6\u30FC\u304C\u300C\u76EE\u6A19\u3068\u3059\u308B\u5C5E\u6027\u30BB\u30C3\u30C8\u300D\u5185\u3067\u5024\u3092\u6307\u5B9A\u3057\u3066\u3044\u308C\u3070\u305D\u308C\u3092\u6700\u512A\u5148\u3068\u3057\u3001\u6307\u5B9A\u304C\u306A\u3044\u5834\u5408\u306FAI\u304C\u9069\u5207\u306B\u88DC\u5B8C\u30FB\u751F\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+\u6700\u7D42\u7684\u306A\u51FA\u529B\u306F\u4E0A\u8A18\u306E\u3010\u51FA\u529B\u5F62\u5F0F\u3011\u306B\u5F93\u3063\u3066\u304F\u3060\u3055\u3044\u3002name\u306F\u30E6\u30FC\u30B6\u30FC\u6307\u5B9A\u304C\u3042\u308C\u3070\u305D\u308C\u3092\u5C0A\u91CD\u3057\u3066\u304F\u3060\u3055\u3044\u3002`;
+  } else {
+    profileInstructions = `\u3042\u306A\u305F\u306F\u4EE5\u4E0B\u306E\u5C5E\u6027\u60C5\u5831\u3092\u6301\u3064\u4EBA\u7269\u306E\u8A73\u7D30\u306A\u30DA\u30EB\u30BD\u30CA\u3092\u8A2D\u8A08\u3059\u308B\u5C02\u9580\u5BB6\u3067\u3059\u3002
 \u3010\u63D0\u4F9B\u3055\u308C\u305F\u5C5E\u6027\u3011
-${providedAttributes}
+${providedAttributesForPrompt}
 ${ethicalConsideration}
 
 \u4E0A\u8A18\u306E\u5C5E\u6027\u60C5\u5831\u3092\u6700\u5927\u9650\u306B\u6D3B\u304B\u3057\u3001\u4E00\u8CAB\u6027\u306E\u3042\u308B\u8A73\u7D30\u306A\u4EBA\u7269\u50CF\u3092\u65E5\u672C\u8A9E\u3067\u8A2D\u8A08\u3057\u3066\u304F\u3060\u3055\u3044\u3002
-\u7279\u306B\u3001\u63D0\u4F9B\u3055\u308C\u305F\u5C5E\u6027\u60C5\u5831\uFF08custom_attributes\u5185\u306E\u6A5F\u5FAE\u60C5\u5831\u3084additional_notes\u3092\u542B\u3080\uFF09\u304B\u3089\u63A8\u6E2C\u3055\u308C\u308B\u5C02\u9580\u6027\u3001\u6027\u683C\u3001\u80CC\u666F\u3001\u4FA1\u5024\u89B3\u3001\u610F\u601D\u6C7A\u5B9A\u306E\u30B9\u30BF\u30A4\u30EB\u3001\u305D\u3057\u3066\u4EBA\u7269\u306E\u5305\u62EC\u7684\u306A\u7279\u5FB4\u3092\u6DF1\u6398\u308A\u3057\u3001\u4E0A\u8A18\u306E\u3010\u51FA\u529B\u8981\u4EF6\u3011\u3068\u3010\u51FA\u529B\u5F62\u5F0F\u3011\u306B\u5F93\u3063\u3066\u60C5\u5831\u3092\u751F\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002
-additional_notes \u306F\u30E6\u30FC\u30B6\u30FC\u306B\u3088\u308B\u8FFD\u8A18\u60C5\u5831\u3067\u3042\u308A\u3001\u91CD\u8981\u306A\u30D2\u30F3\u30C8\u3068\u306A\u308B\u53EF\u80FD\u6027\u304C\u3042\u308A\u307E\u3059\u3002
-custom_attributes \u306B\u306F\u3001\u305D\u306E\u4EBA\u7269\u306E\u3088\u308A\u500B\u4EBA\u7684\u306A\u5074\u9762\u304C\u542B\u307E\u308C\u3066\u3044\u308B\u5834\u5408\u304C\u3042\u308A\u307E\u3059\u3002\u3053\u308C\u3089\u3092\u7D71\u5408\u3057\u3066\u3001\u3088\u308A\u4EBA\u9593\u5473\u306E\u3042\u308B\u3001\u6DF1\u307F\u306E\u3042\u308B\u30DA\u30EB\u30BD\u30CA\u50CF\u3092\u69CB\u7BC9\u3057\u3066\u304F\u3060\u3055\u3044\u3002`;
+\u7279\u306B\u3001\u63D0\u4F9B\u3055\u308C\u305F\u5C5E\u6027\u60C5\u5831\u304B\u3089\u63A8\u6E2C\u3055\u308C\u308B\u5C02\u9580\u6027\u3001\u6027\u683C\u3001\u80CC\u666F\u3001\u4FA1\u5024\u89B3\u3001\u610F\u601D\u6C7A\u5B9A\u306E\u30B9\u30BF\u30A4\u30EB\u3001\u305D\u3057\u3066\u4EBA\u7269\u306E\u5305\u62EC\u7684\u306A\u7279\u5FB4\u3092\u6DF1\u6398\u308A\u3057\u3001\u4E0A\u8A18\u306E\u3010\u51FA\u529B\u8981\u4EF6\u3011\u3068\u3010\u51FA\u529B\u5F62\u5F0F\u3011\u306B\u5F93\u3063\u3066\u60C5\u5831\u3092\u751F\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+additional_notes \u3084 custom_attributes \u3082\u91CD\u8981\u306A\u60C5\u5831\u6E90\u3067\u3059\u3002`;
+  }
   return `${profileInstructions}\\n${commonOutputRequirements}`;
 }
 async function savePersonaToSupabase(personaData) {
@@ -178,70 +197,136 @@ async function savePersonaToSupabase(personaData) {
   console.log("[Supabase] Persona saved:", data);
   return data.id;
 }
+async function updatePersonaInSupabase(id, dataToUpdate) {
+  console.log(`[Supabase] Updating persona ${id} with data:`, dataToUpdate);
+  const { data, error } = await supabase$1.from("expert_personas").update(dataToUpdate).eq("id", id).select("id").single();
+  if (error) {
+    console.error(`[Supabase] Error updating persona ${id}:`, error);
+    throw new Error(`Failed to update persona ${id} in Supabase: ${error.message}`);
+  }
+  console.log(`[Supabase] Persona ${id} updated:`, data);
+  return data.id;
+}
 const personaFactory = createTool({
   id: "personaFactory",
-  description: "\u30DA\u30EB\u30BD\u30CA\u306E\u57FA\u672C\u5C5E\u6027\u304B\u3089AI\u3067\u8A73\u7D30\u60C5\u5831\u3092\u751F\u6210\u3057\u3001Supabase\u306Eexpert_personas\u30C6\u30FC\u30D6\u30EB\u306B\u4FDD\u5B58\u3059\u308B\u30C4\u30FC\u30EB\u3002",
+  description: "\u30DA\u30EB\u30BD\u30CA\u306E\u57FA\u672C\u5C5E\u6027\u304B\u3089AI\u3067\u8A73\u7D30\u60C5\u5831\u3092\u751F\u6210\u30FB\u66F4\u65B0\u3057\u3001Supabase\u306Eexpert_personas\u30C6\u30FC\u30D6\u30EB\u306B\u4FDD\u5B58/\u66F4\u65B0\u3059\u308B\u30C4\u30FC\u30EB\u3002",
   inputSchema: personaFactoryInputSchema,
   outputSchema: personaFactoryOutputSchema,
   execute: async (input) => {
     console.log("\\n--- personaFactory Tool Execution Start ---");
-    console.log("Received input (personaFactory execute):", JSON.stringify(input, null, 2));
+    console.log("Received input (personaFactory execute):", JSON.stringify(input.context, null, 2));
     const attributesList = input.context.personas_attributes;
     if (!attributesList || !Array.isArray(attributesList) || attributesList.length === 0) {
-      console.error("Invalid input: 'personas_attributes' array not found or is empty within input.context.", input);
-      throw new Error("Invalid input: 'personas_attributes' array not found or is empty within input.context.");
+      console.error("Invalid input: 'personas_attributes' array not found or is empty.", input.context);
+      throw new Error("Invalid input: 'personas_attributes' array not found or is empty.");
     }
-    console.log(`Processing ${attributesList.length} persona attributes...`);
-    const createdPersonaIds = [];
-    for (const attr of attributesList) {
-      const prompt = buildPersonaProfilePrompt(attr);
-      const model = openai("gpt-4o");
-      const result = await model.doGenerate({
-        prompt: [
-          { role: "user", content: [{ type: "text", text: prompt }] }
-        ],
-        inputFormat: "messages",
-        mode: { type: "regular" }
-      });
-      let profile;
-      try {
-        let text = result.text || "{}";
-        text = text.replace(/```json|```/g, "").trim();
-        profile = JSON.parse(text);
-      } catch (e) {
-        console.error("[personaFactory] AI\u51FA\u529B\u306EJSON\u30D1\u30FC\u30B9\u306B\u5931\u6557:", result.text);
-        throw new Error("AI\u51FA\u529B\u304CJSON\u5F62\u5F0F\u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3067\u3057\u305F");
-      }
-      const personaData = {
-        ...attr,
-        // 入力された全属性をまず展開
-        name: profile.name ?? attr.name,
-        expertise: profile.expertise,
-        background: profile.background,
-        personality: profile.personality,
-        decision_making_style: profile.decision_making_style,
-        description_by_ai: profile.description_by_ai
-        // AIによる説明も保存
-        // additional_notes は attr からそのまま渡される
-        // custom_attributes も attr からそのまま渡される
-      };
-      try {
-        const personaId = await savePersonaToSupabase(personaData);
-        createdPersonaIds.push(personaId);
-      } catch (error) {
-        console.error(`Failed to process and save persona with attributes: ${JSON.stringify(attr)}`, error);
-        let errorMessage = `\u30DA\u30EB\u30BD\u30CA\u306E\u51E6\u7406\u304A\u3088\u3073\u4FDD\u5B58\u306B\u5931\u6557\u3057\u307E\u3057\u305F (\u5C5E\u6027: ${JSON.stringify(attr)})`;
-        if (error instanceof Error) {
-          errorMessage += `: ${error.message}`;
-        } else if (typeof error === "string") {
-          errorMessage += `: ${error}`;
+    const createdOrUpdatedPersonaIds = [];
+    for (const currentAttr of attributesList) {
+      const personaIdToUpdate = currentAttr.id;
+      const { id: _id, update_mode: rawUpdateMode, ...attributesToProcess } = currentAttr;
+      if (personaIdToUpdate) {
+        const updateMode = rawUpdateMode || "ai_assisted_update";
+        console.log(`[personaFactory] Updating persona ID: ${personaIdToUpdate} with mode: ${updateMode}`);
+        if (updateMode === "direct_update") {
+          console.log(`[personaFactory] Direct update for persona ID: ${personaIdToUpdate}`);
+          try {
+            const updatedId = await updatePersonaInSupabase(personaIdToUpdate, attributesToProcess);
+            createdOrUpdatedPersonaIds.push(updatedId);
+          } catch (error) {
+            console.error(`[personaFactory] Error during direct update for ${personaIdToUpdate}:`, error);
+          }
+        } else {
+          console.log(`[personaFactory] AI-assisted update for persona ID: ${personaIdToUpdate}`);
+          try {
+            const { data: existingPersona, error: fetchError } = await supabase$1.from("expert_personas").select("*").eq("id", personaIdToUpdate).single();
+            if (fetchError || !existingPersona) {
+              console.error(`[personaFactory] Failed to fetch existing persona ${personaIdToUpdate} for update:`, fetchError);
+              throw new Error(`\u65E2\u5B58\u30DA\u30EB\u30BD\u30CA(ID: ${personaIdToUpdate})\u306E\u53D6\u5F97\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002`);
+            }
+            const prompt = buildPersonaProfilePrompt(currentAttr, true, existingPersona);
+            const model = openai("gpt-4o");
+            const result = await model.doGenerate({
+              prompt: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+              inputFormat: "messages",
+              mode: { type: "regular" }
+            });
+            let profileFromAI;
+            try {
+              let text = result.text || "{}";
+              text = text.replace(/```json|```/g, "").trim();
+              profileFromAI = JSON.parse(text);
+            } catch (e) {
+              console.error("[personaFactory] AI\u51FA\u529B\u306EJSON\u30D1\u30FC\u30B9\u306B\u5931\u6557 (update):", result.text, e);
+              throw new Error("AI\u51FA\u529B\u304CJSON\u5F62\u5F0F\u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3067\u3057\u305F (update)");
+            }
+            const finalDataToUpdate = {
+              ...attributesToProcess,
+              // ユーザーが明示的に指定した属性変更
+              name: attributesToProcess.name ?? profileFromAI.name ?? existingPersona.name,
+              // ユーザー指定 > AI生成 > 既存
+              expertise: attributesToProcess.expertise ?? profileFromAI.expertise ?? existingPersona.expertise,
+              background: attributesToProcess.background ?? profileFromAI.background ?? existingPersona.background,
+              personality: attributesToProcess.personality ?? profileFromAI.personality ?? existingPersona.personality,
+              decision_making_style: attributesToProcess.decision_making_style ?? profileFromAI.decision_making_style ?? existingPersona.decision_making_style,
+              description_by_ai: profileFromAI.description_by_ai
+              // AIによる説明はAIからの出力を使用
+              // persona_type や additional_notes など、attributesToProcess に含まれていればそれが使われる
+            };
+            Object.keys(finalDataToUpdate).forEach((key) => {
+              if (finalDataToUpdate[key] === void 0) {
+                delete finalDataToUpdate[key];
+              }
+            });
+            const updatedId = await updatePersonaInSupabase(personaIdToUpdate, finalDataToUpdate);
+            createdOrUpdatedPersonaIds.push(updatedId);
+          } catch (error) {
+            console.error(`[personaFactory] Error during AI-assisted update for ${personaIdToUpdate}:`, error);
+          }
         }
-        throw new Error(errorMessage);
+      } else {
+        console.log("[personaFactory] Creating new persona with attributes:", JSON.stringify(currentAttr, null, 2));
+        try {
+          const prompt = buildPersonaProfilePrompt(currentAttr, false);
+          const model = openai("gpt-4o");
+          const result = await model.doGenerate({
+            prompt: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+            inputFormat: "messages",
+            mode: { type: "regular" }
+          });
+          let profileFromAI;
+          try {
+            let text = result.text || "{}";
+            text = text.replace(/```json|```/g, "").trim();
+            profileFromAI = JSON.parse(text);
+          } catch (e) {
+            console.error("[personaFactory] AI\u51FA\u529B\u306EJSON\u30D1\u30FC\u30B9\u306B\u5931\u6557 (create):", result.text, e);
+            throw new Error("AI\u51FA\u529B\u304CJSON\u5F62\u5F0F\u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3067\u3057\u305F (create)");
+          }
+          const personaDataForSave = {
+            ...attributesToProcess,
+            // id, update_mode が除かれたもの
+            name: attributesToProcess.name ?? profileFromAI.name,
+            // ユーザー指定 > AI生成
+            expertise: profileFromAI.expertise,
+            background: profileFromAI.background,
+            personality: profileFromAI.personality,
+            decision_making_style: profileFromAI.decision_making_style,
+            description_by_ai: profileFromAI.description_by_ai
+            // persona_type, additional_notes などは attributesToProcess に含まれていればそれが使われる
+            // id, update_mode は明示的に undefined または含めない
+          };
+          delete personaDataForSave.id;
+          delete personaDataForSave.update_mode;
+          const newPersonaId = await savePersonaToSupabase(personaDataForSave);
+          createdOrUpdatedPersonaIds.push(newPersonaId);
+        } catch (error) {
+          console.error(`[personaFactory] Error during new persona creation:`, error);
+        }
       }
     }
-    console.log("[personaFactory] Created persona IDs:", JSON.stringify(createdPersonaIds, null, 2));
+    console.log("[personaFactory] Created or Updated persona IDs:", JSON.stringify(createdOrUpdatedPersonaIds, null, 2));
     console.log("--- personaFactory Tool Execution End ---\\n");
-    return { status: "ok", count: createdPersonaIds.length, persona_ids: createdPersonaIds };
+    return { status: "ok", count: createdOrUpdatedPersonaIds.length, persona_ids: createdOrUpdatedPersonaIds };
   }
 });
 
