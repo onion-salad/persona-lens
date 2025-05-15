@@ -1,3 +1,4 @@
+"use client";
 import { Agent } from "@mastra/core/agent";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -67,41 +68,45 @@ export async function runOrchestrator(userMessageContent: string, threadId?: str
 
   type EstimatorOutputType = z.infer<typeof estimatorOutputSchema>;
 
-  // --- ステップ1: EstimatorAgentを呼び出し、ペルソナ属性と必要数を推定 ---
-  console.log("[Orchestrator] Calling EstimatorAgent...");
-  const estimationResult = await estimatorAgent.generate(
-    [{ role: "user", content: userMessageContent }],
-    {
-      output: estimatorOutputSchema,
-      threadId,
-      resourceId,
+  // --- ステップ1: EstimatorAgentを実行して、ペルソナの数と基本属性を見積もる ---
+  console.log(`[Orchestrator - ${uniqueRequestId}] Calling EstimatorAgent...`);
+  const estimationResponse = await estimatorAgent.generate(
+    [{ role: "user", content: userMessageContent }], 
+    { 
+      output: { 
+        format: "json",
+        schema: estimatorOutputSchema 
+      },
+      threadId, 
+      resourceId 
     }
   );
+  const estimatorResult = estimationResponse.object as EstimatorOutputType; // .output から .object に戻す
+  console.log(`[Orchestrator - ${uniqueRequestId}] EstimatorAgent Result:`, JSON.stringify(estimatorResult, null, 2)); 
 
-  const resultObject = estimationResult.object as EstimatorOutputType;
-
-  if (!resultObject || !resultObject.personas_attributes || typeof resultObject.estimated_persona_count !== 'number') {
-    console.error("[Orchestrator] EstimatorAgent did not return valid persona attributes or count.", estimationResult);
+  if (!estimatorResult || !estimatorResult.personas_attributes || estimatorResult.personas_attributes.length === 0) {
+    console.error("[Orchestrator] EstimatorAgent did not return valid persona attributes or count.", estimatorResult);
     throw new Error("EstimatorAgent failed to provide persona attributes or count.");
   }
-  const estimatedAttributes = resultObject.personas_attributes;
-  const estimatedCount = resultObject.estimated_persona_count;
-  console.log("[Orchestrator] EstimatorAgent: Estimated " + estimatedCount + " personas with attributes:", JSON.stringify(estimatedAttributes, null, 2));
+  const estimatedAttributes = estimatorResult.personas_attributes;
+  const estimatedCount = estimatorResult.estimated_persona_count;
+  // console.log("[Orchestrator] EstimatorAgent: Estimated " + estimatedCount + " personas with attributes:", JSON.stringify(estimatedAttributes, null, 2)); // 重複するのでコメントアウト
 
-  // --- ステップ2: personaFinder ツールで既存ペルソナを検索 ---
-  console.log("[Orchestrator] Instructing self to use personaFinder tool...");
-  const finderPayload = {
-    query: userMessageContent, // ユーザーの元の質問をクエリとして使用
-    desired_attributes: estimatedAttributes.length > 0 ? estimatedAttributes[0] : {}, // 推定属性の最初のものを代表として渡すか、あるいはもっと洗練された方法でdesired_attributesを生成する
-    // TODO: desired_attributes は estimatedAttributes 全体を渡すか、LLMに要約させるなどを検討
-  };
+  // --- ステップ2: personaFinderツールで既存ペルソナを検索 ---
+  const desiredAttributesForFinder = estimatedAttributes[0] || {}; 
+  
+  const finderQuery = userMessageContent; 
+  console.log(`[Orchestrator - ${uniqueRequestId}] Calling personaFinder tool with query: "${finderQuery}" and desired_attributes:`, JSON.stringify(desiredAttributesForFinder, null, 2)); 
+
   const finderToolCallPrompt = `以下の情報に基づいて、'personaFinder' ツールを実行してください。
-ツール名: personaFinder
-入力:
-${JSON.stringify(finderPayload, null, 2)}`;
+  ツール名: personaFinder
+  入力:
+${JSON.stringify({ query: finderQuery, desired_attributes: desiredAttributesForFinder }, null, 2)}`;
 
   const finderToolCallResult = await orchestratorAgent.generate(
-    [{ role: "user", content: finderToolCallPrompt }],
+    [
+      { role: "user", content: finderToolCallPrompt }
+    ],
     {
       toolChoice: { type: "tool", toolName: "personaFinder" },
       threadId,

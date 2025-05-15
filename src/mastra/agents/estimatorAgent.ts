@@ -21,43 +21,46 @@ export const estimatorAgent = new Agent({
 - "personas_attributes": 各AIペルソナの具体的な属性情報リスト。このリストの各要素は以下の属性を持つオブジェクトです。
 
 【各ペルソナ属性オブジェクトの仕様】
-必ず "persona_type" を含めてください。これはペルソナの基本的な分類を示します。
-- 'business_professional': ビジネス関連の専門家。企業、役職、業種などの情報が重要。
-- 'general_consumer': 一般的な消費者や生活者。年齢層、性別、興味、ライフスタイルなどが重要。
-- 'specific_role': 特定の役割を持つ人物（例：医者、教師、科学者など）。その役割に特有の経験や知識が重要。
-- 'custom': 上記に当てはまらない、または複合的なペルソナ。具体的な属性で特徴を明確にしてください。
+ユーザーの要望に応じて、以下の属性を適切に含めてください。全ての属性が常に必要とは限りません。ペルソナのタイプや目的に合わせて、最も意味のある属性を自由に記述・提案してください。
 
-ユーザーの要望に応じて、以下の属性を適切に含めてください。全ての属性が常に必要とは限りません。ペルソナタイプや目的に合わせて、最も意味のある属性を選択・提案してください。
+[基本属性]
 
-[共通で検討する属性]
+- persona_type: (推奨) ペルソナの分類や役割を示す自由な記述（例：経験豊富なマーケター、テクノロジーに詳しい大学生、環境問題に関心のある主婦など）。この情報はペルソナの方向性を定める上で重要です。
 - name: (任意) ペルソナの名前。
-- description_by_ai: (任意) AIによって生成されるペルソナの簡単な説明文。
+- description_by_ai: (任意) AIによって生成されるペルソナの簡単な説明文。この項目は personaFactory が最終的に生成するため、ここでは簡単な示唆程度で構いません。
+- additional_notes: (任意) ユーザーが提供した情報や、AIが特に追記すべきと判断したペルソナに関する補足情報や自由記述メモ。
 - region: (任意) 活動地域や居住地域。
 
-[persona_type が 'general_consumer' または 'specific_role'(内容による) の場合に特に重要な属性]
-- age_group: 年齢層 ('child', 'teenager', '20s', ..., '70s_and_above')
-- gender: 性別 ('male', 'female', 'non_binary', ...)
-- occupation_category: 職業分類（例：会社員、学生、主婦・主夫）
-- interests: 興味関心事のリスト（例：["旅行", "料理"]）
-- lifestyle: ライフスタイル（例：アウトドア派、健康志向）
-- family_structure: 家族構成（例：独身、夫婦と子供2人）
-- location_type: 居住地のタイプ ('urban', 'suburban', 'rural')
-- values_and_priorities: 価値観や優先事項のリスト（例：["価格重視", "品質重視"]）
-- technology_literacy: テクノロジーリテラシー ('high', 'medium', 'low')
+[消費者や特定の役割のペルソナで検討する属性の例]
 
-[persona_type が 'business_professional' または 'specific_role'(内容による) の場合に特に重要な属性]
-- title: 役職名（例：マーケティングディレクター）
-- industry: 業種（例：ソフトウェア、小売）
-- position: 社内での立場や役割（例：部門責任者、専門職）
-- company: (任意) 会社名
-- company_size: (任意) 企業規模（例：スタートアップ、大企業）
-- expertise: (任意) 専門分野やスキルセット (JSON形式での詳細も可)
-- background: (任意) 学歴や職歴 (JSON形式での詳細も可)
-- personality: (任意) 性格やコミュニケーションスタイル (JSON形式での詳細も可)
-- decision_making_style: (任意) 意思決定の傾向
+- age_group: 年齢層を自由記述（例：20代後半、40代、シニア層など）。
+- gender: 性別を自由記述（例：男性、女性、特定しないなど）。
+- occupation_category: 職業分類を自由記述。
+- interests: 興味関心事のリスト（文字列の配列）。
+- lifestyle: ライフスタイルを自由記述。
+- family_structure: 家族構成を自由記述。
+- location_type: 居住地のタイプを自由記述。
+- values_and_priorities: 価値観や優先事項のリスト（文字列の配列）。
+- technology_literacy: テクノロジーリテラシーを自由記述（例：高い、平均的、低い、特定のツールに精通など）。
 
-[persona_type が 'custom' または特定の詳細情報が必要な場合]
-- custom_attributes: (任意) 上記以外の特記事項をキーと値のペアで (JSON形式)
+[ビジネス関連や専門的なペルソナで検討する属性の例]
+
+- title: 役職名を自由記述。
+- industry: 業種を自由記述。
+- position: 社内での立場や役割を自由記述。
+- company: (任意) 会社名。
+- company_size: (任意) 企業規模。
+- expertise: (任意) 専門分野やスキルセット。より詳細な情報はJSON形式（キーと値のペア）で記述することを推奨。
+- background: (任意) 学歴や職歴。より詳細な情報はJSON形式（キーと値のペア）で記述することを推奨。
+- personality: (任意) 性格やコミュニケーションスタイル。より詳細な情報はJSON形式（キーと値のペア）で記述することを推奨。
+- decision_making_style: (任意) 意思決定の傾向を自由記述。
+
+[その他のカスタム属性 - バイタルデータなど]
+
+- custom_attributes: (任意) 上記以外の特記事項や、より詳細な情報をキーと値のペアで記述 (JSON形式を推奨)。
+  ユーザーが遺伝子情報、健康状態、資産状況、病歴などのバイタルデータやセンシティブな情報を示唆した場合、それらをこの custom_attributes 内に構造化して含めることを検討してください。
+  例： "custom_attributes": { "health_vitals": { "blood_pressure": "高め", "chronic_conditions": ["花粉症"] }, "financial_overview": { "investment_style": "積極的" } }
+  これらの情報は非常にデリケートであるため、ユーザーからの明確な指示や強い示唆がない限り、AIが積極的に創作・追加することは避けてください。あくまでユーザー入力を整理・構造化する補助としてください。
 
 【出力の厳守事項】
 - 最終的な出力は、必ず指定されたJSONスキーマ（estimated_persona_count, personas_attributes を持つオブジェクト）に従ってください。
