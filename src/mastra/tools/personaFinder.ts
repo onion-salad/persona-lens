@@ -33,6 +33,7 @@ const finderInputSchema = z.object({
       field: z.string().describe('検索対象のDBカラム名'),
       keyword: z.string().describe('そのフィールドで検索するキーワード'),
       match_type: z.enum(['exact', 'partial']).default('partial').optional().describe('検索タイプ (exact: 完全一致, partial: 部分一致)'),
+      operation_type: z.enum(['include', 'exclude']).default('include').optional().describe('操作タイプ (include: この条件を含む, exclude: この条件を除外する)')
     })
   ).optional().describe('特定のフィールドを指定したキーワード検索のリスト。'),
 });
@@ -74,8 +75,10 @@ export class PersonaFinderTool extends Tool<
       console.log('[PersonaFinderTool] Input:', input.context);
 
       let supabaseQuery = supabase.from('expert_personas').select('*');
-      // 部分一致検索の結果を格納するIDリスト
+      // 部分一致包含検索の結果を格納するIDリスト
       let idsForPartialMatchFilter: string[] | null = null;
+      // 部分一致配列除外検索の結果、除外すべきIDを格納するSet
+      const idsToExcludeFromPartialArrayMatch = new Set<string>();
 
       if (id) {
         supabaseQuery = supabaseQuery.eq('id', id);
@@ -88,7 +91,6 @@ export class PersonaFinderTool extends Tool<
               if (['name', 'title', 'company', 'industry', 'position', 'company_size', 'region', 'persona_type', 'description_by_ai', 'age_group', 'gender', 'occupation_category', 'lifestyle', 'family_structure', 'location_type', 'technology_literacy', 'decision_making_style', 'additional_notes'].includes(schemaKey) && typeof value === 'string') {
                  supabaseQuery = supabaseQuery.ilike(schemaKey, `%${value}%`);
               } else if (['interests', 'values_and_priorities'].includes(schemaKey) && Array.isArray(value) && value.length > 0) {
-                 // desired_attributes での配列型は現状 'overlaps' (いずれかを含む) のまま。部分一致は targeted_keyword_searches で対応
                  supabaseQuery = supabaseQuery.overlaps(schemaKey, value as string[]);
               } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                 console.warn(`[PersonaFinderTool] Filtering by complex object/JSONB field '${schemaKey}' via desired_attributes might not work as expected without specific handling.`);
@@ -104,64 +106,82 @@ export class PersonaFinderTool extends Tool<
           for (const search of targeted_keyword_searches) {
             if (search.keyword && search.keyword.trim() !== '') {
               const keyword = search.keyword.trim();
-              const arrayTypeFields = ['interests', 'values_and_priorities']; // 他の配列型カラムがあれば追加
+              const arrayTypeFields = ['interests', 'values_and_priorities']; 
+              const operation = search.operation_type || 'include'; // default 'include'
 
-              if (arrayTypeFields.includes(search.field)) {
-                if (search.match_type === 'partial' && keyword) {
-                  console.log(`[PersonaFinderTool] Performing RPC call for partial match on field '${search.field}' with keyword '${keyword}'`);
-                  const { data: rpcData, error: rpcError } = await supabase.rpc(
-                    'get_ids_by_array_partial_match',
-                    { p_field_name: search.field, p_keyword: keyword }
-                  );
-
-                  if (rpcError) {
-                    console.error(`[PersonaFinderTool] RPC call for field '${search.field}' with keyword '${keyword}' failed:`, rpcError);
-                    // RPCエラーの場合、このフィールドの検索ではIDが見つからなかったものとして扱う
-                    // 積集合の結果、全体としてもIDが見つからないようにするため、idsForPartialMatchFilter を空配列にする
-                    idsForPartialMatchFilter = []; 
-                  } else {
-                    const currentIds = (rpcData || []).map((r: { id: string }) => r.id);
-                    console.log(`[PersonaFinderTool] RPC call for field '${search.field}' returned ${currentIds.length} IDs.`);
-                    if (idsForPartialMatchFilter === null) {
-                      // 最初の部分一致検索の結果
-                      idsForPartialMatchFilter = currentIds;
+              if (arrayTypeFields.includes(search.field)) { // 配列フィールド
+                if (operation === 'include') {
+                  if (search.match_type === 'partial' && keyword) {
+                    console.log(`[PersonaFinderTool] Performing RPC call for partial INCLUDE on field '${search.field}' with keyword '${keyword}'`);
+                    const { data: rpcData, error: rpcError } = await supabase.rpc(
+                      'get_ids_by_array_partial_match',
+                      { p_field_name: search.field, p_keyword: keyword }
+                    );
+                    if (rpcError) {
+                      console.error(`[PersonaFinderTool] RPC call for field '${search.field}' (for inclusion) failed:`, rpcError);
+                      idsForPartialMatchFilter = []; 
                     } else {
-                      // 既存のIDリストとの積集合を取る
-                      idsForPartialMatchFilter = idsForPartialMatchFilter.filter(idVal => currentIds.includes(idVal));
+                      const currentIds = (rpcData || []).map((r: { id: string }) => r.id);
+                      if (idsForPartialMatchFilter === null) {
+                        idsForPartialMatchFilter = currentIds;
+                      } else {
+                        idsForPartialMatchFilter = idsForPartialMatchFilter.filter(idVal => currentIds.includes(idVal));
+                      }
+                      if (idsForPartialMatchFilter.length === 0) {
+                        console.log(`[PersonaFinderTool] After intersection for field '${search.field}', no IDs remain for partial include.`);
+                      }
                     }
-                    // 積集合の結果、該当IDが0になったら、それ以上RPCを呼び出す必要はないかもしれないが、
-                    // 他の targeted_keyword_searches の非配列条件はまだ適用する必要があるためループは続ける
-                    if (idsForPartialMatchFilter.length === 0) {
-                        console.log(`[PersonaFinderTool] After intersection with field '${search.field}', no IDs remain for partial match.`);
-                    }
+                  } else if (search.match_type === 'exact' && keyword) { // 配列型の完全一致包含
+                    supabaseQuery = supabaseQuery.contains(search.field, [keyword]);
                   }
-                } else if (search.match_type === 'exact' && keyword) { // 配列型の完全一致
-                  supabaseQuery = supabaseQuery.contains(search.field, [keyword]);
-                } else if (!keyword && search.match_type === 'partial') {
-                  // キーワードが空の場合は何もしない
+                } else { // operation === 'exclude'
+                  if (search.match_type === 'partial' && keyword) {
+                    console.log(`[PersonaFinderTool] Performing RPC call for partial EXCLUDE on field '${search.field}' with keyword '${keyword}'`);
+                    const { data: rpcData, error: rpcError } = await supabase.rpc(
+                      'get_ids_by_array_partial_match', // 「含む」IDを取得するRPCを再利用
+                      { p_field_name: search.field, p_keyword: keyword }
+                    );
+                    if (rpcError) {
+                      console.error(`[PersonaFinderTool] RPC call for field '${search.field}' (for exclusion) failed:`, rpcError);
+                    } else {
+                      const idsContainingKeyword = (rpcData || []).map((r: { id: string }) => r.id);
+                      idsContainingKeyword.forEach(id => idsToExcludeFromPartialArrayMatch.add(id));
+                      console.log(`[PersonaFinderTool] IDs containing '${keyword}' in '${search.field}' (for exclusion): ${idsContainingKeyword.length} found.`);
+                    }
+                  } else if (search.match_type === 'exact' && keyword) { // 配列型の完全一致除外
+                    supabaseQuery = supabaseQuery.not(search.field, 'cs', `{${keyword}}`); 
+                  }
                 }
-
-              } else { // 非配列型カラムの場合
+              } else { // 非配列型カラム (テキストフィールドなど)
                 const searchKeywordFormatted = search.match_type === 'exact' ? keyword : `%${keyword}%`;
                 const operator = search.match_type === 'exact' ? 'eq' : 'ilike';
-                supabaseQuery = supabaseQuery[operator](search.field, searchKeywordFormatted);
+                if (operation === 'include') {
+                  supabaseQuery = supabaseQuery[operator](search.field, searchKeywordFormatted);
+                } else { // operation === 'exclude'
+                  supabaseQuery = supabaseQuery.not(search.field, operator, searchKeywordFormatted);
+                }
               }
             }
           }
         }
         
-        // targeted_keyword_searches ループの後、idsForPartialMatchFilter を適用
+        // targeted_keyword_searches ループの後、各種IDフィルタを適用
+        // 1. 部分一致包含フィルタ (idsForPartialMatchFilter)
         if (idsForPartialMatchFilter !== null) {
             if (idsForPartialMatchFilter.length === 0) {
-                // 部分一致検索の結果、適合するIDが一つもなかった場合
-                // またはRPCエラーで空になった場合
-                // 確実に結果が0件になるように、存在しないIDでフィルタする
-                console.log("[PersonaFinderTool] No IDs found from partial match searches, forcing empty result.");
+                console.log("[PersonaFinderTool] No IDs found from partial match include searches, forcing empty result for this path.");
                 supabaseQuery = supabaseQuery.eq('id', '00000000-0000-0000-0000-000000000000'); 
             } else {
-                console.log(`[PersonaFinderTool] Applying IN filter for partial match IDs: ${idsForPartialMatchFilter.length} IDs.`);
+                console.log(`[PersonaFinderTool] Applying IN filter for partial match include IDs: ${idsForPartialMatchFilter.length} IDs.`);
                 supabaseQuery = supabaseQuery.in('id', idsForPartialMatchFilter);
             }
+        }
+
+        // 2. 部分一致配列除外フィルタ (idsToExcludeFromPartialArrayMatch)
+        if (idsToExcludeFromPartialArrayMatch.size > 0) {
+          const excludeIdList = Array.from(idsToExcludeFromPartialArrayMatch);
+          console.log(`[PersonaFinderTool] Applying NOT IN filter for partial array exclusion: ${excludeIdList.length} IDs.`);
+          supabaseQuery = supabaseQuery.not('id', 'in', excludeIdList);
         }
 
         // 3. 汎用的な query によるキーワード検索
