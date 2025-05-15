@@ -20,12 +20,21 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // personaAttributeSchema のすべてのキーをオプショナルにしたスキーマを作成
 const partialPersonaAttributeSchema = personaAttributeSchema.partial();
 
-// personaFinderツールの入力スキーマ
+// personaFinderツールの入力スキーマ (改修)
 const finderInputSchema = z.object({
-  query: z.string().optional().describe('ユーザーの質問や検索したいキーワード'),
+  id: z.string().uuid().optional().describe('検索対象のペルソナID (指定された場合、他の条件より優先)'),
+  query: z.string().optional().describe('汎用的な検索キーワード。複数の主要テキストフィールドを対象に部分一致検索。'),
+  search_target_fields: z.array(z.string()).optional().describe('汎用queryの検索対象とするフィールド名のリスト。指定がなければデフォルトのフィールド群を検索。'),
   desired_attributes: partialPersonaAttributeSchema
     .optional()
-    .describe('理想とするペルソナの属性（部分的な指定も可）'),
+    .describe('理想とするペルソナの属性。指定された属性と値でフィルタリング（文字列は部分一致、他は完全一致）。'),
+  targeted_keyword_searches: z.array(
+    z.object({
+      field: z.string().describe('検索対象のDBカラム名'),
+      keyword: z.string().describe('そのフィールドで検索するキーワード'),
+      match_type: z.enum(['exact', 'partial']).default('partial').optional().describe('検索タイプ (exact: 完全一致, partial: 部分一致)'),
+    })
+  ).optional().describe('特定のフィールドを指定したキーワード検索のリスト。'),
 });
 
 // personaFinderツールの出力スキーマ
@@ -51,7 +60,7 @@ export class PersonaFinderTool extends Tool<
     super({
       id: 'persona_finder',
       description:
-        '指定された条件（キーワードや属性）に基づいて、既存のペルソナをデータベースから検索します。',
+        '指定された条件（ID、キーワード、属性、特定フィールドのキーワード）に基づいて、既存のペルソナをデータベースから検索します。',
       inputSchema: finderInputSchema,
       outputSchema: finderOutputSchema,
     });
@@ -61,78 +70,144 @@ export class PersonaFinderTool extends Tool<
     input: PersonaFinderToolInput
   ): Promise<z.infer<typeof finderOutputSchema>> => {
     try {
-      const { query, desired_attributes } = input.context;
-
+      const { id, query, search_target_fields, desired_attributes, targeted_keyword_searches } = input.context;
       console.log('[PersonaFinderTool] Input:', input.context);
 
       let supabaseQuery = supabase.from('expert_personas').select('*');
+      // 部分一致検索の結果を格納するIDリスト
+      let idsForPartialMatchFilter: string[] | null = null;
 
-      // desired_attributes に基づくフィルタリング
-      if (desired_attributes) {
-        for (const [key, value] of Object.entries(desired_attributes)) {
-          if (value !== undefined && value !== null && value !== '') {
-            // ZodスキーマのキーとDBのカラム名が一致している前提
-            // text型, varchar型などのカラムは ilike で部分一致検索、それ以外は eq で完全一致
-            // persona_type のようなenum的なものは eq が適切
-            // interests のような配列型は contains や overlaps を使う必要があるが、まずは単純なケースに対応
-            if (['persona_name', 'expertise', 'responsibilities', 'description', 'background', 'target_audience_description', 'communication_style', 'notes', 'company_name', 'industry_tags', 'skills', 'tools_technologies', 'certifications_licenses', 'publications_works', 'awards_recognitions', 'values_beliefs', 'lifestyle_focus', 'preferred_communication_channels', 'online_behavior', 'content_preferences', 'brand_affinities'].includes(key) && typeof value === 'string') {
-              supabaseQuery = supabaseQuery.ilike(key, `%${value}%`);
-            } else if (key === 'tags' && Array.isArray(value) && value.length > 0) {
-              // tags は text[] 型を想定。 overlaps を使用
-              supabaseQuery = supabaseQuery.overlaps(key, value);
-            } else if (['interests', 'values_and_priorities'].includes(key) && Array.isArray(value) && value.length > 0) {
-              // interests や values_and_priorities は text[] 型と想定し、overlaps を使用
-              supabaseQuery = supabaseQuery.overlaps(key, value as string[]); // value を string[] にキャスト
-            }
-            else {
-              supabaseQuery = supabaseQuery.eq(key, value);
+      if (id) {
+        supabaseQuery = supabaseQuery.eq('id', id);
+      } else {
+        // 1. desired_attributes によるフィルタリング
+        if (desired_attributes) {
+          for (const [key, value] of Object.entries(desired_attributes)) {
+            if (value !== undefined && value !== null && (typeof value !== 'string' || value.trim() !== '')) {
+              const schemaKey = key as keyof z.infer<typeof partialPersonaAttributeSchema>;
+              if (['name', 'title', 'company', 'industry', 'position', 'company_size', 'region', 'persona_type', 'description_by_ai', 'age_group', 'gender', 'occupation_category', 'lifestyle', 'family_structure', 'location_type', 'technology_literacy', 'decision_making_style', 'additional_notes'].includes(schemaKey) && typeof value === 'string') {
+                 supabaseQuery = supabaseQuery.ilike(schemaKey, `%${value}%`);
+              } else if (['interests', 'values_and_priorities'].includes(schemaKey) && Array.isArray(value) && value.length > 0) {
+                 // desired_attributes での配列型は現状 'overlaps' (いずれかを含む) のまま。部分一致は targeted_keyword_searches で対応
+                 supabaseQuery = supabaseQuery.overlaps(schemaKey, value as string[]);
+              } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                console.warn(`[PersonaFinderTool] Filtering by complex object/JSONB field '${schemaKey}' via desired_attributes might not work as expected without specific handling.`);
+              } else if (value !== undefined) { 
+                 supabaseQuery = supabaseQuery.eq(schemaKey, value);
+              }
             }
           }
         }
-      }
 
-      // query 文字列に基づくキーワード検索
-      // description, expertise, persona_name, responsibilities を対象とする
-      if (query) {
-        const searchQuery = `%${query}%`;
-        // expertise と responsibilities を検索対象から一旦除外
-        supabaseQuery = supabaseQuery.or(
-          `name.ilike.${searchQuery},description_by_ai.ilike.${searchQuery}`
-        );
+        // 2. targeted_keyword_searches によるフィルタリング
+        if (targeted_keyword_searches && targeted_keyword_searches.length > 0) {
+          for (const search of targeted_keyword_searches) {
+            if (search.keyword && search.keyword.trim() !== '') {
+              const keyword = search.keyword.trim();
+              const arrayTypeFields = ['interests', 'values_and_priorities']; // 他の配列型カラムがあれば追加
+
+              if (arrayTypeFields.includes(search.field)) {
+                if (search.match_type === 'partial' && keyword) {
+                  console.log(`[PersonaFinderTool] Performing RPC call for partial match on field '${search.field}' with keyword '${keyword}'`);
+                  const { data: rpcData, error: rpcError } = await supabase.rpc(
+                    'get_ids_by_array_partial_match',
+                    { p_field_name: search.field, p_keyword: keyword }
+                  );
+
+                  if (rpcError) {
+                    console.error(`[PersonaFinderTool] RPC call for field '${search.field}' with keyword '${keyword}' failed:`, rpcError);
+                    // RPCエラーの場合、このフィールドの検索ではIDが見つからなかったものとして扱う
+                    // 積集合の結果、全体としてもIDが見つからないようにするため、idsForPartialMatchFilter を空配列にする
+                    idsForPartialMatchFilter = []; 
+                  } else {
+                    const currentIds = (rpcData || []).map((r: { id: string }) => r.id);
+                    console.log(`[PersonaFinderTool] RPC call for field '${search.field}' returned ${currentIds.length} IDs.`);
+                    if (idsForPartialMatchFilter === null) {
+                      // 最初の部分一致検索の結果
+                      idsForPartialMatchFilter = currentIds;
+                    } else {
+                      // 既存のIDリストとの積集合を取る
+                      idsForPartialMatchFilter = idsForPartialMatchFilter.filter(idVal => currentIds.includes(idVal));
+                    }
+                    // 積集合の結果、該当IDが0になったら、それ以上RPCを呼び出す必要はないかもしれないが、
+                    // 他の targeted_keyword_searches の非配列条件はまだ適用する必要があるためループは続ける
+                    if (idsForPartialMatchFilter.length === 0) {
+                        console.log(`[PersonaFinderTool] After intersection with field '${search.field}', no IDs remain for partial match.`);
+                    }
+                  }
+                } else if (search.match_type === 'exact' && keyword) { // 配列型の完全一致
+                  supabaseQuery = supabaseQuery.contains(search.field, [keyword]);
+                } else if (!keyword && search.match_type === 'partial') {
+                  // キーワードが空の場合は何もしない
+                }
+
+              } else { // 非配列型カラムの場合
+                const searchKeywordFormatted = search.match_type === 'exact' ? keyword : `%${keyword}%`;
+                const operator = search.match_type === 'exact' ? 'eq' : 'ilike';
+                supabaseQuery = supabaseQuery[operator](search.field, searchKeywordFormatted);
+              }
+            }
+          }
+        }
+        
+        // targeted_keyword_searches ループの後、idsForPartialMatchFilter を適用
+        if (idsForPartialMatchFilter !== null) {
+            if (idsForPartialMatchFilter.length === 0) {
+                // 部分一致検索の結果、適合するIDが一つもなかった場合
+                // またはRPCエラーで空になった場合
+                // 確実に結果が0件になるように、存在しないIDでフィルタする
+                console.log("[PersonaFinderTool] No IDs found from partial match searches, forcing empty result.");
+                supabaseQuery = supabaseQuery.eq('id', '00000000-0000-0000-0000-000000000000'); 
+            } else {
+                console.log(`[PersonaFinderTool] Applying IN filter for partial match IDs: ${idsForPartialMatchFilter.length} IDs.`);
+                supabaseQuery = supabaseQuery.in('id', idsForPartialMatchFilter);
+            }
+        }
+
+        // 3. 汎用的な query によるキーワード検索
+        if (query && query.trim() !== '') {
+          const searchQueryString = `%${query.trim()}%`;
+          const defaultSearchFields = [
+            'name', 'persona_type', 'description_by_ai', 'additional_notes',
+            'title', 'industry', 'position', 'company',
+            'age_group', 'gender', 'occupation_category', 'lifestyle', 'decision_making_style'
+          ];
+          const fieldsToSearch = search_target_fields && search_target_fields.length > 0
+            ? search_target_fields
+            : defaultSearchFields;
+
+          const orConditions = fieldsToSearch
+            .filter(field => field.trim() !== '') 
+            .map(field => `${field}.ilike.${searchQueryString}`)
+            .join(',');
+          
+          if (orConditions) {
+              supabaseQuery = supabaseQuery.or(orConditions);
+          }
+        }
       }
 
       const { data, error } = await supabaseQuery;
 
       if (error) {
-        console.error(
-          '[PersonaFinderTool] Supabaseからのデータ取得エラー:',
-          error
-        );
-        throw new Error(
-          `Supabaseからのペルソナ検索中にエラーが発生しました: ${error.message}`
-        );
+        console.error('[PersonaFinderTool] Supabaseからのデータ取得エラー:', error);
+        throw new Error(`Supabaseからのペルソナ検索中にエラーが発生しました: ${error.message}`);
       }
 
-      console.log('[PersonaFinderTool] Found personas raw:', data);
+      console.log('[PersonaFinderTool] Found personas raw:', data ? data.length : 0);
 
-      // Supabaseからのデータは personaAttributeSchema に合うように整形・パースが必要な場合がある
-      // 特に、DBのカラム名とスキーマのプロパティ名が異なる場合や、型の変換が必要な場合
-      // ここでは、カラム名とプロパティ名が一致し、型も互換性があると仮定する
       const validatedPersonas = (data || []).map((persona) => {
         try {
           return personaAttributeSchema.parse(persona);
         } catch (validationError) {
           console.warn(`[PersonaFinderTool] 取得したペルソナデータの検証に失敗しました (ID: ${persona.id}):`, validationError);
-          // 検証に失敗したデータは除外するか、エラーとして扱うか選択
-          // ここでは null を返して後でフィルタリングする
           return null;
         }
       }).filter(p => p !== null) as z.infer<typeof personaAttributeSchema>[];
 
-
-      console.log('[PersonaFinderTool] Validated personas:', validatedPersonas);
-
+      console.log('[PersonaFinderTool] Validated personas:', validatedPersonas.length);
       return { found_personas: validatedPersonas };
+
     } catch (error) {
       console.error('[PersonaFinderTool] 実行時エラー:', error);
       let errorMessage = 'PersonaFinderToolの実行中に予期せぬエラーが発生しました。';
@@ -141,7 +216,6 @@ export class PersonaFinderTool extends Tool<
       } else if (typeof error === 'string') {
         errorMessage += `: ${error}`;
       }
-      // MastraのToolErrorクラスなどがあればそれを使うことを検討
       throw new Error(errorMessage);
     }
   };

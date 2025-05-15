@@ -81,8 +81,7 @@ const personaAttributeSchema = z.object({
   name: z.string().optional(),
   persona_type: z.string().optional(),
   description_by_ai: z.string().optional(),
-  additional_notes: z.string().optional(),
-  // 追加
+  additional_notes: z.string().nullable().optional(),
   // 一般消費者向け属性
   age_group: z.string().optional(),
   gender: z.string().optional(),
@@ -105,9 +104,8 @@ const personaAttributeSchema = z.object({
   personality: z.record(z.string(), z.any()).optional(),
   decision_making_style: z.string().optional(),
   // カスタム属性 (遺伝情報、健康状態、資産状況などを含むことを想定)
-  custom_attributes: z.record(z.string(), z.any()).optional(),
+  custom_attributes: z.record(z.string(), z.any()).nullable().optional(),
   update_mode: z.enum(["ai_assisted_update", "direct_update"]).optional()
-  // 追加
 });
 const personaFactoryInputSchema = z.object({
   personas_attributes: z.array(personaAttributeSchema).min(1)
@@ -542,8 +540,17 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 const partialPersonaAttributeSchema = personaAttributeSchema.partial();
 const finderInputSchema = z.object({
-  query: z.string().optional().describe("\u30E6\u30FC\u30B6\u30FC\u306E\u8CEA\u554F\u3084\u691C\u7D22\u3057\u305F\u3044\u30AD\u30FC\u30EF\u30FC\u30C9"),
-  desired_attributes: partialPersonaAttributeSchema.optional().describe("\u7406\u60F3\u3068\u3059\u308B\u30DA\u30EB\u30BD\u30CA\u306E\u5C5E\u6027\uFF08\u90E8\u5206\u7684\u306A\u6307\u5B9A\u3082\u53EF\uFF09")
+  id: z.string().uuid().optional().describe("\u691C\u7D22\u5BFE\u8C61\u306E\u30DA\u30EB\u30BD\u30CAID (\u6307\u5B9A\u3055\u308C\u305F\u5834\u5408\u3001\u4ED6\u306E\u6761\u4EF6\u3088\u308A\u512A\u5148)"),
+  query: z.string().optional().describe("\u6C4E\u7528\u7684\u306A\u691C\u7D22\u30AD\u30FC\u30EF\u30FC\u30C9\u3002\u8907\u6570\u306E\u4E3B\u8981\u30C6\u30AD\u30B9\u30C8\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u5BFE\u8C61\u306B\u90E8\u5206\u4E00\u81F4\u691C\u7D22\u3002"),
+  search_target_fields: z.array(z.string()).optional().describe("\u6C4E\u7528query\u306E\u691C\u7D22\u5BFE\u8C61\u3068\u3059\u308B\u30D5\u30A3\u30FC\u30EB\u30C9\u540D\u306E\u30EA\u30B9\u30C8\u3002\u6307\u5B9A\u304C\u306A\u3051\u308C\u3070\u30C7\u30D5\u30A9\u30EB\u30C8\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u7FA4\u3092\u691C\u7D22\u3002"),
+  desired_attributes: partialPersonaAttributeSchema.optional().describe("\u7406\u60F3\u3068\u3059\u308B\u30DA\u30EB\u30BD\u30CA\u306E\u5C5E\u6027\u3002\u6307\u5B9A\u3055\u308C\u305F\u5C5E\u6027\u3068\u5024\u3067\u30D5\u30A3\u30EB\u30BF\u30EA\u30F3\u30B0\uFF08\u6587\u5B57\u5217\u306F\u90E8\u5206\u4E00\u81F4\u3001\u4ED6\u306F\u5B8C\u5168\u4E00\u81F4\uFF09\u3002"),
+  targeted_keyword_searches: z.array(
+    z.object({
+      field: z.string().describe("\u691C\u7D22\u5BFE\u8C61\u306EDB\u30AB\u30E9\u30E0\u540D"),
+      keyword: z.string().describe("\u305D\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3067\u691C\u7D22\u3059\u308B\u30AD\u30FC\u30EF\u30FC\u30C9"),
+      match_type: z.enum(["exact", "partial"]).default("partial").optional().describe("\u691C\u7D22\u30BF\u30A4\u30D7 (exact: \u5B8C\u5168\u4E00\u81F4, partial: \u90E8\u5206\u4E00\u81F4)")
+    })
+  ).optional().describe("\u7279\u5B9A\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u305F\u30AD\u30FC\u30EF\u30FC\u30C9\u691C\u7D22\u306E\u30EA\u30B9\u30C8\u3002")
 });
 const finderOutputSchema = z.object({
   found_personas: z.array(personaAttributeSchema).describe("\u691C\u7D22\u6761\u4EF6\u306B\u5408\u81F4\u3057\u305F\u30DA\u30EB\u30BD\u30CA\u306E\u30EA\u30B9\u30C8")
@@ -552,48 +559,113 @@ class PersonaFinderTool extends Tool {
   constructor() {
     super({
       id: "persona_finder",
-      description: "\u6307\u5B9A\u3055\u308C\u305F\u6761\u4EF6\uFF08\u30AD\u30FC\u30EF\u30FC\u30C9\u3084\u5C5E\u6027\uFF09\u306B\u57FA\u3065\u3044\u3066\u3001\u65E2\u5B58\u306E\u30DA\u30EB\u30BD\u30CA\u3092\u30C7\u30FC\u30BF\u30D9\u30FC\u30B9\u304B\u3089\u691C\u7D22\u3057\u307E\u3059\u3002",
+      description: "\u6307\u5B9A\u3055\u308C\u305F\u6761\u4EF6\uFF08ID\u3001\u30AD\u30FC\u30EF\u30FC\u30C9\u3001\u5C5E\u6027\u3001\u7279\u5B9A\u30D5\u30A3\u30FC\u30EB\u30C9\u306E\u30AD\u30FC\u30EF\u30FC\u30C9\uFF09\u306B\u57FA\u3065\u3044\u3066\u3001\u65E2\u5B58\u306E\u30DA\u30EB\u30BD\u30CA\u3092\u30C7\u30FC\u30BF\u30D9\u30FC\u30B9\u304B\u3089\u691C\u7D22\u3057\u307E\u3059\u3002",
       inputSchema: finderInputSchema,
       outputSchema: finderOutputSchema
     });
   }
   execute = async (input) => {
     try {
-      const { query, desired_attributes } = input.context;
+      const { id, query, search_target_fields, desired_attributes, targeted_keyword_searches } = input.context;
       console.log("[PersonaFinderTool] Input:", input.context);
       let supabaseQuery = supabase.from("expert_personas").select("*");
-      if (desired_attributes) {
-        for (const [key, value] of Object.entries(desired_attributes)) {
-          if (value !== void 0 && value !== null && value !== "") {
-            if (["persona_name", "expertise", "responsibilities", "description", "background", "target_audience_description", "communication_style", "notes", "company_name", "industry_tags", "skills", "tools_technologies", "certifications_licenses", "publications_works", "awards_recognitions", "values_beliefs", "lifestyle_focus", "preferred_communication_channels", "online_behavior", "content_preferences", "brand_affinities"].includes(key) && typeof value === "string") {
-              supabaseQuery = supabaseQuery.ilike(key, `%${value}%`);
-            } else if (key === "tags" && Array.isArray(value) && value.length > 0) {
-              supabaseQuery = supabaseQuery.overlaps(key, value);
-            } else if (["interests", "values_and_priorities"].includes(key) && Array.isArray(value) && value.length > 0) {
-              supabaseQuery = supabaseQuery.overlaps(key, value);
-            } else {
-              supabaseQuery = supabaseQuery.eq(key, value);
+      let idsForPartialMatchFilter = null;
+      if (id) {
+        supabaseQuery = supabaseQuery.eq("id", id);
+      } else {
+        if (desired_attributes) {
+          for (const [key, value] of Object.entries(desired_attributes)) {
+            if (value !== void 0 && value !== null && (typeof value !== "string" || value.trim() !== "")) {
+              const schemaKey = key;
+              if (["name", "title", "company", "industry", "position", "company_size", "region", "persona_type", "description_by_ai", "age_group", "gender", "occupation_category", "lifestyle", "family_structure", "location_type", "technology_literacy", "decision_making_style", "additional_notes"].includes(schemaKey) && typeof value === "string") {
+                supabaseQuery = supabaseQuery.ilike(schemaKey, `%${value}%`);
+              } else if (["interests", "values_and_priorities"].includes(schemaKey) && Array.isArray(value) && value.length > 0) {
+                supabaseQuery = supabaseQuery.overlaps(schemaKey, value);
+              } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+                console.warn(`[PersonaFinderTool] Filtering by complex object/JSONB field '${schemaKey}' via desired_attributes might not work as expected without specific handling.`);
+              } else if (value !== void 0) {
+                supabaseQuery = supabaseQuery.eq(schemaKey, value);
+              }
             }
           }
         }
-      }
-      if (query) {
-        const searchQuery = `%${query}%`;
-        supabaseQuery = supabaseQuery.or(
-          `name.ilike.${searchQuery},description_by_ai.ilike.${searchQuery}`
-        );
+        if (targeted_keyword_searches && targeted_keyword_searches.length > 0) {
+          for (const search of targeted_keyword_searches) {
+            if (search.keyword && search.keyword.trim() !== "") {
+              const keyword = search.keyword.trim();
+              const arrayTypeFields = ["interests", "values_and_priorities"];
+              if (arrayTypeFields.includes(search.field)) {
+                if (search.match_type === "partial" && keyword) {
+                  console.log(`[PersonaFinderTool] Performing RPC call for partial match on field '${search.field}' with keyword '${keyword}'`);
+                  const { data: rpcData, error: rpcError } = await supabase.rpc(
+                    "get_ids_by_array_partial_match",
+                    { p_field_name: search.field, p_keyword: keyword }
+                  );
+                  if (rpcError) {
+                    console.error(`[PersonaFinderTool] RPC call for field '${search.field}' with keyword '${keyword}' failed:`, rpcError);
+                    idsForPartialMatchFilter = [];
+                  } else {
+                    const currentIds = (rpcData || []).map((r) => r.id);
+                    console.log(`[PersonaFinderTool] RPC call for field '${search.field}' returned ${currentIds.length} IDs.`);
+                    if (idsForPartialMatchFilter === null) {
+                      idsForPartialMatchFilter = currentIds;
+                    } else {
+                      idsForPartialMatchFilter = idsForPartialMatchFilter.filter((idVal) => currentIds.includes(idVal));
+                    }
+                    if (idsForPartialMatchFilter.length === 0) {
+                      console.log(`[PersonaFinderTool] After intersection with field '${search.field}', no IDs remain for partial match.`);
+                    }
+                  }
+                } else if (search.match_type === "exact" && keyword) {
+                  supabaseQuery = supabaseQuery.contains(search.field, [keyword]);
+                } else ;
+              } else {
+                const searchKeywordFormatted = search.match_type === "exact" ? keyword : `%${keyword}%`;
+                const operator = search.match_type === "exact" ? "eq" : "ilike";
+                supabaseQuery = supabaseQuery[operator](search.field, searchKeywordFormatted);
+              }
+            }
+          }
+        }
+        if (idsForPartialMatchFilter !== null) {
+          if (idsForPartialMatchFilter.length === 0) {
+            console.log("[PersonaFinderTool] No IDs found from partial match searches, forcing empty result.");
+            supabaseQuery = supabaseQuery.eq("id", "00000000-0000-0000-0000-000000000000");
+          } else {
+            console.log(`[PersonaFinderTool] Applying IN filter for partial match IDs: ${idsForPartialMatchFilter.length} IDs.`);
+            supabaseQuery = supabaseQuery.in("id", idsForPartialMatchFilter);
+          }
+        }
+        if (query && query.trim() !== "") {
+          const searchQueryString = `%${query.trim()}%`;
+          const defaultSearchFields = [
+            "name",
+            "persona_type",
+            "description_by_ai",
+            "additional_notes",
+            "title",
+            "industry",
+            "position",
+            "company",
+            "age_group",
+            "gender",
+            "occupation_category",
+            "lifestyle",
+            "decision_making_style"
+          ];
+          const fieldsToSearch = search_target_fields && search_target_fields.length > 0 ? search_target_fields : defaultSearchFields;
+          const orConditions = fieldsToSearch.filter((field) => field.trim() !== "").map((field) => `${field}.ilike.${searchQueryString}`).join(",");
+          if (orConditions) {
+            supabaseQuery = supabaseQuery.or(orConditions);
+          }
+        }
       }
       const { data, error } = await supabaseQuery;
       if (error) {
-        console.error(
-          "[PersonaFinderTool] Supabase\u304B\u3089\u306E\u30C7\u30FC\u30BF\u53D6\u5F97\u30A8\u30E9\u30FC:",
-          error
-        );
-        throw new Error(
-          `Supabase\u304B\u3089\u306E\u30DA\u30EB\u30BD\u30CA\u691C\u7D22\u4E2D\u306B\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F: ${error.message}`
-        );
+        console.error("[PersonaFinderTool] Supabase\u304B\u3089\u306E\u30C7\u30FC\u30BF\u53D6\u5F97\u30A8\u30E9\u30FC:", error);
+        throw new Error(`Supabase\u304B\u3089\u306E\u30DA\u30EB\u30BD\u30CA\u691C\u7D22\u4E2D\u306B\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F: ${error.message}`);
       }
-      console.log("[PersonaFinderTool] Found personas raw:", data);
+      console.log("[PersonaFinderTool] Found personas raw:", data ? data.length : 0);
       const validatedPersonas = (data || []).map((persona) => {
         try {
           return personaAttributeSchema.parse(persona);
@@ -602,7 +674,7 @@ class PersonaFinderTool extends Tool {
           return null;
         }
       }).filter((p) => p !== null);
-      console.log("[PersonaFinderTool] Validated personas:", validatedPersonas);
+      console.log("[PersonaFinderTool] Validated personas:", validatedPersonas.length);
       return { found_personas: validatedPersonas };
     } catch (error) {
       console.error("[PersonaFinderTool] \u5B9F\u884C\u6642\u30A8\u30E9\u30FC:", error);
