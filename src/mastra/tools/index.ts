@@ -100,3 +100,18 @@ function getWeatherCondition(code: number): string {
   };
   return conditions[code] || 'Unknown';
 }
+
+// PersonaLens Tools
+export { personaFactory, personaAttributeSchema, personaFactoryInputSchema, personaFactoryOutputSchema, buildPersonaProfilePrompt } from './personaFactory';
+export { personaFinder, personaFinderInputSchema, personaFinderOutputSchema } from './personaFinder';
+export { personaResponder, personaResponderInputSchema, personaResponderOutputSchema } from './personaResponder';
+export { personaUpdater, personaUpdaterInputSchema, personaUpdaterOutputSchema } from './personaUpdater';
+
+// 利用可能な全ツールを配列としてエクスポート (OrchestratorAgentなどで利用想定)
+export const allTools = [
+  weatherTool, // サンプルとして残す場合
+  personaFactory,
+  personaFinder,
+  personaResponder,
+  personaUpdater,
+];

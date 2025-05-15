@@ -21,7 +21,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const partialPersonaAttributeSchema = personaAttributeSchema.partial();
 
 // personaFinderツールの入力スキーマ
-const finderInputSchema = z.object({
+export const finderInputSchema = z.object({
   query: z.string().optional().describe('ユーザーの質問や検索したいキーワード'),
   desired_attributes: partialPersonaAttributeSchema
     .optional()
@@ -29,7 +29,7 @@ const finderInputSchema = z.object({
 });
 
 // personaFinderツールの出力スキーマ
-const finderOutputSchema = z.object({
+export const finderOutputSchema = z.object({
   found_personas: z
     .array(personaAttributeSchema)
     .describe('検索条件に合致したペルソナのリスト'),
@@ -147,4 +147,4 @@ export class PersonaFinderTool extends Tool<
   };
 }
 
-export default new PersonaFinderTool(); 
+export const personaFinder = new PersonaFinderTool(); 

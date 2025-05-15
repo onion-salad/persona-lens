@@ -9,7 +9,7 @@ export const personaAttributeSchema = z.object({
   name: z.string().optional(),
   persona_type: z.string().optional(),
   description_by_ai: z.string().optional(),
-  additional_notes: z.string().optional(), // 追加
+  additional_notes: z.string().optional(),
 
   // 一般消費者向け属性
   age_group: z.string().optional(),
@@ -36,6 +36,10 @@ export const personaAttributeSchema = z.object({
 
   // カスタム属性 (遺伝情報、健康状態、資産状況などを含むことを想定)
   custom_attributes: z.record(z.string(), z.any()).optional(),
+
+  // タイムスタンプ
+  created_at: z.string().datetime().optional(),
+  updated_at: z.string().datetime().optional(),
 });
 
 export const personaFactoryInputSchema = z.object({
@@ -49,7 +53,7 @@ export const personaFactoryOutputSchema = z.object({
 });
 
 // AIで詳細プロフィールを生成するプロンプト (改修後)
-function buildPersonaProfilePrompt(attr: z.infer<typeof personaAttributeSchema>): string {
+export function buildPersonaProfilePrompt(attr: z.infer<typeof personaAttributeSchema>): string {
   const commonOutputRequirements = `
 【出力要件】
 - name: 日本人らしい自然な氏名（もし入力のname属性が空の場合）。入力にnameがあればそれを優先。

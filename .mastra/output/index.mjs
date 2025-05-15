@@ -82,7 +82,6 @@ const personaAttributeSchema = z.object({
   persona_type: z.string().optional(),
   description_by_ai: z.string().optional(),
   additional_notes: z.string().optional(),
-  // 追加
   // 一般消費者向け属性
   age_group: z.string().optional(),
   gender: z.string().optional(),
@@ -105,7 +104,10 @@ const personaAttributeSchema = z.object({
   personality: z.record(z.string(), z.any()).optional(),
   decision_making_style: z.string().optional(),
   // カスタム属性 (遺伝情報、健康状態、資産状況などを含むことを想定)
-  custom_attributes: z.record(z.string(), z.any()).optional()
+  custom_attributes: z.record(z.string(), z.any()).optional(),
+  // タイムスタンプ
+  created_at: z.string().datetime().optional(),
+  updated_at: z.string().datetime().optional()
 });
 const personaFactoryInputSchema = z.object({
   personas_attributes: z.array(personaAttributeSchema).min(1)
