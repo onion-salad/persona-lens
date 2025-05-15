@@ -30,7 +30,7 @@ create policy "ユーザーは自分の実行履歴のみアクセス可能" on 
   for all using (auth.uid() = user_id);
 
 -- ペルソナテーブル
-create table if not exists public.personas (
+create table if not exists public.expert_personas (
   id uuid default uuid_generate_v4() primary key,
   execution_id uuid references public.execution_history(id) on delete cascade,
   name text,
@@ -44,12 +44,12 @@ create table if not exists public.personas (
 );
 
 -- RLSポリシーの設定
-alter table public.personas enable row level security;
-create policy "ユーザーは関連する実行のペルソナにアクセス可能" on public.personas
+alter table public.expert_personas enable row level security;
+create policy "ユーザーは関連する実行のペルソナにアクセス可能" on public.expert_personas
   for all using (
     exists (
       select 1 from public.execution_history
-      where id = personas.execution_id
+      where id = expert_personas.execution_id
       and user_id = auth.uid()
     )
   );
@@ -57,7 +57,7 @@ create policy "ユーザーは関連する実行のペルソナにアクセス�
 -- フィードバックテーブル
 create table if not exists public.feedbacks (
   id uuid default uuid_generate_v4() primary key,
-  persona_id uuid references public.personas(id) on delete cascade,
+  persona_id uuid references public.expert_personas(id) on delete cascade,
   execution_id uuid references public.execution_history(id) on delete cascade,
   content text,
   rating integer,

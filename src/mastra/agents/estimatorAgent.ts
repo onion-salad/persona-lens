@@ -68,10 +68,10 @@ export const estimatorAgent = new Agent({
   model: openai("gpt-4o-mini"),
   memory: new Memory({
     storage: new LibSQLStore({
-      url: 'file:../../../mastra-memory.db'
+      url: 'file:./mastra-memory.db'
     }),
     vector: new LibSQLVector({
-      connectionUrl: 'file:../../../mastra-memory.db'
+      connectionUrl: 'file:./mastra-memory.db'
     }),
     embedder: openai.embedding('text-embedding-3-small'),
     options: {

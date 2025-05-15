@@ -5,6 +5,7 @@ import { openai } from "@ai-sdk/openai";
 
 // 更新された personaAttributeSchema
 export const personaAttributeSchema = z.object({
+  id: z.string().uuid().optional(),
   name: z.string().optional(),
   persona_type: z.enum(['business_professional', 'general_consumer', 'specific_role', 'custom']).optional().default('custom'),
   description_by_ai: z.string().optional(),

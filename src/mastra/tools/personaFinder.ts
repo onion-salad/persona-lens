@@ -1,7 +1,10 @@
-import { Tool } from '@mastra/core';
+import { Tool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 import { personaAttributeSchema } from './personaFactory'; // personaFactoryからインポート
+
+console.log('DEBUG: SUPABASE_URL in personaFinder:', process.env.SUPABASE_URL);
+console.log('DEBUG: SUPABASE_SERVICE_KEY in personaFinder:', process.env.SUPABASE_SERVICE_KEY ? 'Loaded' : 'NOT LOADED');
 
 // Supabaseクライアントの初期化（環境変数から設定を読み込む）
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -72,11 +75,14 @@ export class PersonaFinderTool extends Tool<
             // text型, varchar型などのカラムは ilike で部分一致検索、それ以外は eq で完全一致
             // persona_type のようなenum的なものは eq が適切
             // interests のような配列型は contains や overlaps を使う必要があるが、まずは単純なケースに対応
-            if (['persona_name', 'expertise', 'responsibilities', 'description', 'background', 'target_audience_description', 'communication_style', 'notes', 'company_name', 'industry_tags', 'skills', 'tools_technologies', 'certifications_licenses', 'publications_works', 'awards_recognitions', 'interests', 'values_beliefs', 'lifestyle_focus', 'preferred_communication_channels', 'online_behavior', 'content_preferences', 'brand_affinities'].includes(key) && typeof value === 'string') {
+            if (['persona_name', 'expertise', 'responsibilities', 'description', 'background', 'target_audience_description', 'communication_style', 'notes', 'company_name', 'industry_tags', 'skills', 'tools_technologies', 'certifications_licenses', 'publications_works', 'awards_recognitions', 'values_beliefs', 'lifestyle_focus', 'preferred_communication_channels', 'online_behavior', 'content_preferences', 'brand_affinities'].includes(key) && typeof value === 'string') {
               supabaseQuery = supabaseQuery.ilike(key, `%${value}%`);
             } else if (key === 'tags' && Array.isArray(value) && value.length > 0) {
               // tags は text[] 型を想定。 overlaps を使用
               supabaseQuery = supabaseQuery.overlaps(key, value);
+            } else if (['interests', 'values_and_priorities'].includes(key) && Array.isArray(value) && value.length > 0) {
+              // interests や values_and_priorities は text[] 型と想定し、overlaps を使用
+              supabaseQuery = supabaseQuery.overlaps(key, value as string[]); // value を string[] にキャスト
             }
             else {
               supabaseQuery = supabaseQuery.eq(key, value);
@@ -89,8 +95,9 @@ export class PersonaFinderTool extends Tool<
       // description, expertise, persona_name, responsibilities を対象とする
       if (query) {
         const searchQuery = `%${query}%`;
+        // expertise と responsibilities を検索対象から一旦除外
         supabaseQuery = supabaseQuery.or(
-          `persona_name.ilike.${searchQuery},description.ilike.${searchQuery},expertise.ilike.${searchQuery},responsibilities.ilike.${searchQuery}`
+          `name.ilike.${searchQuery},description_by_ai.ilike.${searchQuery}`
         );
       }
 

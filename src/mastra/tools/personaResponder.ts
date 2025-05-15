@@ -123,18 +123,25 @@ export const personaResponder = createTool({
     const persona_id = input.context.persona_id;
     const question = input.context.question;
 
-    console.log(`[personaResponder] Extracted persona_id: ${persona_id}, question: ${question}`);
+    console.log(`[personaResponder ID: ${persona_id}] Extracted persona_id and question.`);
 
     if (!persona_id) {
+      console.error(`[personaResponder ID: ${persona_id}] Persona ID is missing.`);
       throw new Error(`Persona not found for id: ${persona_id}`);
     }
     const persona = await fetchPersona(persona_id);
     if (!persona) {
+      console.error(`[personaResponder ID: ${persona_id}] Persona not found in Supabase.`);
       throw new Error(`Persona not found for id: ${persona_id}`);
     }
+    console.log(`[personaResponder ID: ${persona_id}] Successfully fetched persona from Supabase:`, persona.name);
+    
     const prompt = buildPrompt(persona, question);
+    console.log(`[personaResponder ID: ${persona_id}] Built prompt for LLM.`);
+    
     // GPT API呼び出し
     const model = openai("gpt-4o");
+    console.log(`[personaResponder ID: ${persona_id}] Calling LLM (gpt-4o)...`);
     const result = await model.doGenerate({
       prompt: [
         { role: "user", content: [{ type: "text", text: prompt }] }
@@ -142,12 +149,17 @@ export const personaResponder = createTool({
       inputFormat: "messages",
       mode: { type: "regular" },
     });
+    console.log(`[personaResponder ID: ${persona_id}] LLM call completed.`);
     const answer = result.text || "回答生成に失敗しました。";
-    return {
+    console.log(`[personaResponder ID: ${persona_id}] Generated answer: ${answer.substring(0, 50)}...`); // 回答の冒頭のみログ出力
+    
+    const output = {
       persona_id,
       answer,
       persona_name: persona.name,
       attributes: persona,
     };
+    console.log(`[personaResponder ID: ${persona_id}] Returning output.`);
+    return output;
   },
 }); 
