@@ -69,6 +69,12 @@ export async function handleGenerateExpertProposal(ctx: Context): Promise<Respon
 
     logger?.info('Orchestration process completed successfully.');
 
+    if (result === null || result === undefined) { 
+      logger?.error('runOrchestrator returned null or undefined');
+      // @ts-ignore
+      return ctx.json({ message: 'Internal server error: Orchestrator did not return a valid result' }, 500);
+    }
+
     // runOrchestrator が最終的なレスポンスオブジェクトを返すので、それをそのまま返す
     // @ts-ignore
     return ctx.json(result, 200);

@@ -44,35 +44,118 @@ export default function DashboardPage() {
     setMessages((prevMessages) => [...prevMessages, userMessage]);
     setIsLoading(true);
 
-    console.log('Sending message to orchestrator:', {
-      message: messageContent,
-      threadId: threadId,
-      // resourceId: null, // 必要に応じて
-    });
+    const requestPayload = {
+      messages: [{ role: "user" as const, content: messageContent }],
+      // threadId や resourceId も必要に応じて含めることができますが、
+      // generateExpertProposal.ts 側で新規生成しているので、ここでは必須ではありません。
+      // もしフロントで管理しているthreadIdを継続利用したい場合は、それを渡すようにします。
+      // 今回はシンプルにするため、メッセージ内容のみを渡します。
+    };
 
-    // --- ここからAPI呼び出しのダミー処理 ---
-    // 実際にはここでAPIを呼び出し、オーケストレーターからの応答を取得します。
-    // const response = await fetch('/api/orchestrate', { // 例
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ message: messageContent, threadId, resourceId: null }),
-    // });
-    // const data = await response.json();
-    // --- ここまでAPI呼び出しのダミー処理 ---
+    console.log('Sending message to API:', requestPayload);
 
-    // ダミーのAI応答
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/generate-expert-proposal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'APIから不正な形式のエラー応答がありました。' }));
+        console.error('API Error:', errorData);
+        const errorMessage = errorData.message || `APIエラーが発生しました: ${response.status}`;
+        const aiErrorResponse: ChatMessageProps = {
+          id: uuidv4(),
+          sender: 'system',
+          content: `エラー: ${errorMessage}`,
+          timestamp: new Date().toLocaleTimeString(),
+        };
+        setMessages((prevMessages) => [...prevMessages, aiErrorResponse]);
+        setIsLoading(false);
+        return;
+      }
+
+      const result = await response.json();
+      console.log('API Response:', result);
+
+      // APIからの応答を整形してチャットメッセージとして表示
+      // resultの構造は orchestratorAgent.ts の finalOutput に依存します。
+      // ここでは、OrchestratorAgent の新しい対話型 instructions に基づいた応答を期待します。
+      // 応答が直接的な回答文字列であるか、あるいは複数のステップを含むオブジェクトであるかを判断する必要があります。
+
+      // 仮に result.text や result.choices[0].message.content のような単純なテキスト応答を期待する場合:
+      // let aiContent = "AIからの応答がありませんでした。";
+      // if (result && result.text) { // Mastra Agent の .generate() の直接の応答に近い形式
+      //   aiContent = result.text;
+      // } else if (result && result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content) { // OpenAI互換の応答形式
+      //  aiContent = result.choices[0].message.content;
+      // }
+
+      // OrchestratorAgentの新しいinstructionsは、まず目的確認や計画提示の質問を返すはず。
+      // そのため、result自体がオーケストレーターの発言として表示されるべき。
+      // ここでは、resultが orchestratorAgent.ts の instructions に従って、
+      // ユーザーへの質問や計画の提示を含むテキストを返すことを期待します。
+      // 実際の orchestratorAgent.ts の最終的な出力形式に合わせて調整が必要です。
+      // 現状の orchestratorAgent.ts は expertProposalSchema に整形したものを返しているので、
+      // その中のユーザーへのメッセージに相当する部分（例：summary や next_steps）を使うか、
+      // または orchestratorAgent の instructions に従って最初の質問を生成するように変更し、それを表示します。
+
+      // ---- OrchestratorAgent の instructions に合わせた応答処理（案） -----
+      // APIのレスポンスがオーケストレーターの直接の「発言」であると仮定します。
+      // これは、API側(generateExpertProposal.ts)で、orchestratorAgent.generate() を直接呼び出し、
+      // その .text や .object (ツール呼び出しがない場合) を返すように変更した場合に最もシンプルに動作します。
+      // 現在の runOrchestrator は複数のツールを実行し、expertProposalSchema 形式で返すため、
+      // このままでは直接的な「対話の最初の応答」とはなりにくいです。
+
+      // ここでは、runOrchestrator が返す expertProposalSchema の summary を一旦表示してみます。
+      let aiContent = "AIからの応答を処理できませんでした。";
+      let personaName = "Orchestrator";
+
+      if (result && typeof result === 'object') {
+        if (result.summary) { // expertProposalSchemaのsummaryを使う場合
+          aiContent = result.summary;
+          if (result.next_steps && result.next_steps.length > 0) {
+            aiContent += "\n\n次のステップ:\n- " + result.next_steps.join("\n- ");
+          }
+        } else if (result.message) { // 単純なエラーメッセージや情報メッセージの場合
+            aiContent = result.message;
+        } else if (result.text) { // Mastra Agentの .generate() の直接の応答の場合
+            aiContent = result.text;
+        } else {
+            // それでも適切な内容が見つからない場合は、生のJSONを表示（デバッグ用）
+            aiContent = "AIからの応答:\n" + JSON.stringify(result, null, 2);
+        }
+      }
+      // TODO: ここで result の内容を解析し、OrchestratorAgentの対話的な応答を生成・表示する必要がある。
+      // 例えば、OrchestratorAgentが「目的は明確ですか？計画を立てますか？」と質問する応答を期待。
+      // そのためには、API側で runOrchestrator を使うのではなく、
+      // orchestratorAgent.generate(userMessageContent, { threadId }) のような呼び出しをする必要があるかもしれない。
+
       const aiResponse: ChatMessageProps = {
         id: uuidv4(),
         sender: 'ai',
-        personaName: 'Orchestrator',
-        content: `「${messageContent}」についてですね。確認します。
-（現在はダミー応答です。実際のオーケストレーターの応答はここに表示されます。）`,
+        personaName: personaName, 
+        content: aiContent,
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prevMessages) => [...prevMessages, aiResponse]);
-      setIsLoading(false);
-    }, 1500);
+
+    } catch (error) {
+      console.error('Network or other error:', error);
+      const errorMessage = error instanceof Error ? error.message : '不明なネットワークエラーが発生しました。';
+      const aiErrorResponse: ChatMessageProps = {
+        id: uuidv4(),
+        sender: 'system',
+        content: `エラー: ${errorMessage}`,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      setMessages((prevMessages) => [...prevMessages, aiErrorResponse]);
+    }
+
+    setIsLoading(false);
   };
 
   return (
