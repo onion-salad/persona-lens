@@ -1061,7 +1061,21 @@ async function handleGenerateExpertProposal(ctx) {
     const threadId = crypto.randomUUID();
     const resourceId = crypto.randomUUID();
     const result = await runOrchestrator(userMessage.content, threadId, resourceId);
+    logger?.info("Orchestrator result type:", typeof result);
+    try {
+      logger?.info("Orchestrator result value (JSON.stringify):", JSON.stringify(result));
+    } catch (e) {
+      logger?.info("Orchestrator result value could not be stringified by JSON.stringify");
+    }
+    logger?.info("Orchestrator result value (raw):", result);
     logger?.info("Orchestration process completed successfully.");
+    if (result === null || result === void 0) {
+      logger?.error("runOrchestrator returned null or undefined");
+      return ctx.json({ message: "Internal server error: Orchestrator did not return a valid result" }, 500);
+    }
+    if (typeof result === "string") {
+      return ctx.json({ message: result }, 200);
+    }
     return ctx.json(result, 200);
   } catch (error) {
     logger?.error("Error in handleGenerateExpertProposal handler:", error);

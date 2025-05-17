@@ -8,7 +8,7 @@ import { LibSQLStore, LibSQLVector } from '@mastra/libsql';
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { weatherTool } from './tools/057ed849-60a6-4bc5-943e-571c179b0268.mjs';
+import { weatherTool } from './tools/37055946-29ae-4626-a2df-de8b63585524.mjs';
 import { z } from 'zod';
 import { createTool, Tool, isVercelTool } from '@mastra/core/tools';
 import { createClient } from '@supabase/supabase-js';
