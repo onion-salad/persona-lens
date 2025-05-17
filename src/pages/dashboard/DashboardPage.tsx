@@ -5,6 +5,8 @@ import { MessageList } from '@/features/chat/components/MessageList';
 import { MessageInput } from '@/features/chat/components/MessageInput';
 import type { ChatMessageProps } from '@/features/chat/components/ChatMessage';
 import { v4 as uuidv4 } from 'uuid'; // 一意なID生成のため
+import "@copilotkit/react-ui/styles.css"; // CopilotKitのUIスタイルをインポート
+import { CopilotPopup, CopilotSidebar } from "@copilotkit/react-ui"; 
 
 export default function DashboardPage() {
   const [messages, setMessages] = useState<ChatMessageProps[]>([]);
@@ -158,13 +160,62 @@ export default function DashboardPage() {
     setIsLoading(false);
   };
 
+  // TODO: ここに右側のコンテンツエリアに表示する内容を将来的に実装
+  const MainContent = () => {
+    return (
+      <div className="p-8 bg-white dark:bg-gray-800 rounded-lg shadow">
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-4">メインコンテンツエリア</h2>
+        <p className="text-gray-600 dark:text-gray-300">
+          ここに、オーケストレーターとの対話結果や、生成されたペルソナ情報、
+          その他の分析結果などが表示される予定です。
+        </p>
+        <p className="text-gray-600 dark:text-gray-300 mt-4">
+          CopilotKitのチャットインターフェースは左側に表示されます。
+        </p>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
       <header className="bg-white dark:bg-gray-800 shadow-md p-4 border-b dark:border-gray-700">
-        <h1 className="text-xl font-semibold text-gray-800 dark:text-white">PersonaLens Chat</h1>
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-white">PersonaLens (CopilotKit Demo)</h1>
       </header>
-      <MessageList messages={messages} />
-      <MessageInput onSendMessage={handleSendMessage} isLoading={isLoading} />
+      <div className="flex flex-grow overflow-hidden"> {/* flex-grow と overflow-hidden を親に追加 */} 
+        {/* 左側のチャットエリア (CopilotKit UI) */}
+        {/* CopilotSidebarを使って左側に固定表示する例 */}
+        <div className="w-1/3 h-full border-r border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col"> 
+            <CopilotSidebar
+                labels={{
+                    title: "PersonaLens Assistant",
+                    initial: "こんにちは！PersonaLensアシスタントです。どのようなご用件でしょうか？",
+                }}
+                defaultOpen={true} // 最初から開いた状態にする
+                clickOutsideToClose={false} // 外側クリックで閉じないようにする
+                // ここで直接 instructions を渡せるか、あるいはCopilotKitプロバイダーのagent設定が使われるか
+            >
+                {/* CopilotSidebarは通常、トリガーボタンなどをchildrenに持つことを期待しないか、
+                    あるいはチャットインターフェース自体を描画する。
+                    ドキュメントの<CopilotPopup>のように、コンテンツを持たない場合もある。
+                    もしSidebarが内部にチャットUIをレンダリングするなら、このchildrenは不要かもしれない。
+                    ここでは、Sidebarが左側のコンテナとして機能し、その内部でチャットUIが表示されると期待。
+                 */}
+            </CopilotSidebar>
+        </div>
+
+        {/* 右側のメインコンテンツエリア */}
+        <main className="flex-grow p-6 overflow-y-auto"> {/* overflow-y-autoでコンテンツが多ければスクロール */} 
+          <MainContent />
+        </main>
+
+        {/* CopilotPopup を使う場合 (画面右下にポップアップとして表示) */}
+        {/* <CopilotPopup
+          labels={{
+            title: "PersonaLens Assistant",
+            initial: "Hi! I\'m connected to your Mastra orchestratorAgent. How can I help?",
+          }}
+        /> */}
+      </div>
     </div>
   );
 } 

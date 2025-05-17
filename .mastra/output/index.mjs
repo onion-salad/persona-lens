@@ -8,7 +8,7 @@ import { LibSQLStore, LibSQLVector } from '@mastra/libsql';
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { weatherTool } from './tools/be209f75-feac-46a6-86cd-24a3616cb538.mjs';
+import { weatherTool } from './tools/057ed849-60a6-4bc5-943e-571c179b0268.mjs';
 import { z } from 'zod';
 import { createTool, Tool, isVercelTool } from '@mastra/core/tools';
 import { createClient } from '@supabase/supabase-js';
@@ -548,7 +548,8 @@ const finderInputSchema = z.object({
     z.object({
       field: z.string().describe("\u691C\u7D22\u5BFE\u8C61\u306EDB\u30AB\u30E9\u30E0\u540D"),
       keyword: z.string().describe("\u305D\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3067\u691C\u7D22\u3059\u308B\u30AD\u30FC\u30EF\u30FC\u30C9"),
-      match_type: z.enum(["exact", "partial"]).default("partial").optional().describe("\u691C\u7D22\u30BF\u30A4\u30D7 (exact: \u5B8C\u5168\u4E00\u81F4, partial: \u90E8\u5206\u4E00\u81F4)")
+      match_type: z.enum(["exact", "partial"]).default("partial").optional().describe("\u691C\u7D22\u30BF\u30A4\u30D7 (exact: \u5B8C\u5168\u4E00\u81F4, partial: \u90E8\u5206\u4E00\u81F4)"),
+      operation_type: z.enum(["include", "exclude"]).default("include").optional().describe("\u64CD\u4F5C\u30BF\u30A4\u30D7 (include: \u3053\u306E\u6761\u4EF6\u3092\u542B\u3080, exclude: \u3053\u306E\u6761\u4EF6\u3092\u9664\u5916\u3059\u308B)")
     })
   ).optional().describe("\u7279\u5B9A\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u305F\u30AD\u30FC\u30EF\u30FC\u30C9\u691C\u7D22\u306E\u30EA\u30B9\u30C8\u3002")
 });
@@ -570,6 +571,7 @@ class PersonaFinderTool extends Tool {
       console.log("[PersonaFinderTool] Input:", input.context);
       let supabaseQuery = supabase.from("expert_personas").select("*");
       let idsForPartialMatchFilter = null;
+      const idsToExcludeFromPartialArrayMatch = /* @__PURE__ */ new Set();
       if (id) {
         supabaseQuery = supabaseQuery.eq("id", id);
       } else {
@@ -594,50 +596,80 @@ class PersonaFinderTool extends Tool {
             if (search.keyword && search.keyword.trim() !== "") {
               const keyword = search.keyword.trim();
               const arrayTypeFields = ["interests", "values_and_priorities"];
+              const operation = search.operation_type || "include";
               if (arrayTypeFields.includes(search.field)) {
-                if (search.match_type === "partial" && keyword) {
-                  console.log(`[PersonaFinderTool] Performing RPC call for partial match on field '${search.field}' with keyword '${keyword}'`);
-                  const { data: rpcData, error: rpcError } = await supabase.rpc(
-                    "get_ids_by_array_partial_match",
-                    { p_field_name: search.field, p_keyword: keyword }
-                  );
-                  if (rpcError) {
-                    console.error(`[PersonaFinderTool] RPC call for field '${search.field}' with keyword '${keyword}' failed:`, rpcError);
-                    idsForPartialMatchFilter = [];
-                  } else {
-                    const currentIds = (rpcData || []).map((r) => r.id);
-                    console.log(`[PersonaFinderTool] RPC call for field '${search.field}' returned ${currentIds.length} IDs.`);
-                    if (idsForPartialMatchFilter === null) {
-                      idsForPartialMatchFilter = currentIds;
+                if (operation === "include") {
+                  if (search.match_type === "partial" && keyword) {
+                    console.log(`[PersonaFinderTool] Performing RPC call for partial INCLUDE on field '${search.field}' with keyword '${keyword}'`);
+                    const { data: rpcData, error: rpcError } = await supabase.rpc(
+                      "get_ids_by_array_partial_match",
+                      { p_field_name: search.field, p_keyword: keyword }
+                    );
+                    if (rpcError) {
+                      console.error(`[PersonaFinderTool] RPC call for field '${search.field}' (for inclusion) failed:`, rpcError);
+                      idsForPartialMatchFilter = [];
                     } else {
-                      idsForPartialMatchFilter = idsForPartialMatchFilter.filter((idVal) => currentIds.includes(idVal));
+                      const currentIds = (rpcData || []).map((r) => r.id);
+                      if (idsForPartialMatchFilter === null) {
+                        idsForPartialMatchFilter = currentIds;
+                      } else {
+                        idsForPartialMatchFilter = idsForPartialMatchFilter.filter((idVal) => currentIds.includes(idVal));
+                      }
+                      if (idsForPartialMatchFilter.length === 0) {
+                        console.log(`[PersonaFinderTool] After intersection for field '${search.field}', no IDs remain for partial include.`);
+                      }
                     }
-                    if (idsForPartialMatchFilter.length === 0) {
-                      console.log(`[PersonaFinderTool] After intersection with field '${search.field}', no IDs remain for partial match.`);
-                    }
+                  } else if (search.match_type === "exact" && keyword) {
+                    supabaseQuery = supabaseQuery.contains(search.field, [keyword]);
                   }
-                } else if (search.match_type === "exact" && keyword) {
-                  supabaseQuery = supabaseQuery.contains(search.field, [keyword]);
-                } else ;
+                } else {
+                  if (search.match_type === "partial" && keyword) {
+                    console.log(`[PersonaFinderTool] Performing RPC call for partial EXCLUDE on field '${search.field}' with keyword '${keyword}'`);
+                    const { data: rpcData, error: rpcError } = await supabase.rpc(
+                      "get_ids_by_array_partial_match",
+                      // 「含む」IDを取得するRPCを再利用
+                      { p_field_name: search.field, p_keyword: keyword }
+                    );
+                    if (rpcError) {
+                      console.error(`[PersonaFinderTool] RPC call for field '${search.field}' (for exclusion) failed:`, rpcError);
+                    } else {
+                      const idsContainingKeyword = (rpcData || []).map((r) => r.id);
+                      idsContainingKeyword.forEach((id2) => idsToExcludeFromPartialArrayMatch.add(id2));
+                      console.log(`[PersonaFinderTool] IDs containing '${keyword}' in '${search.field}' (for exclusion): ${idsContainingKeyword.length} found.`);
+                    }
+                  } else if (search.match_type === "exact" && keyword) {
+                    supabaseQuery = supabaseQuery.not(search.field, "cs", `{${keyword}}`);
+                  }
+                }
               } else {
                 const searchKeywordFormatted = search.match_type === "exact" ? keyword : `%${keyword}%`;
                 const operator = search.match_type === "exact" ? "eq" : "ilike";
-                supabaseQuery = supabaseQuery[operator](search.field, searchKeywordFormatted);
+                if (operation === "include") {
+                  supabaseQuery = supabaseQuery[operator](search.field, searchKeywordFormatted);
+                } else {
+                  supabaseQuery = supabaseQuery.not(search.field, operator, searchKeywordFormatted);
+                }
               }
             }
           }
         }
         if (idsForPartialMatchFilter !== null) {
           if (idsForPartialMatchFilter.length === 0) {
-            console.log("[PersonaFinderTool] No IDs found from partial match searches, forcing empty result.");
+            console.log("[PersonaFinderTool] No IDs found from partial match include searches, forcing empty result for this path.");
             supabaseQuery = supabaseQuery.eq("id", "00000000-0000-0000-0000-000000000000");
           } else {
-            console.log(`[PersonaFinderTool] Applying IN filter for partial match IDs: ${idsForPartialMatchFilter.length} IDs.`);
+            console.log(`[PersonaFinderTool] Applying IN filter for partial match include IDs: ${idsForPartialMatchFilter.length} IDs.`);
             supabaseQuery = supabaseQuery.in("id", idsForPartialMatchFilter);
           }
         }
+        if (idsToExcludeFromPartialArrayMatch.size > 0) {
+          const excludeIdList = Array.from(idsToExcludeFromPartialArrayMatch);
+          console.log(`[PersonaFinderTool] Applying NOT IN filter for partial array exclusion: ${excludeIdList.length} IDs.`);
+          supabaseQuery = supabaseQuery.not("id", "in", excludeIdList);
+        }
         if (query && query.trim() !== "") {
-          const searchQueryString = `%${query.trim()}%`;
+          const trimmedQuery = query.trim();
+          const searchQueryString = `%${trimmedQuery}%`;
           const defaultSearchFields = [
             "name",
             "persona_type",
@@ -654,9 +686,45 @@ class PersonaFinderTool extends Tool {
             "decision_making_style"
           ];
           const fieldsToSearch = search_target_fields && search_target_fields.length > 0 ? search_target_fields : defaultSearchFields;
-          const orConditions = fieldsToSearch.filter((field) => field.trim() !== "").map((field) => `${field}.ilike.${searchQueryString}`).join(",");
-          if (orConditions) {
-            supabaseQuery = supabaseQuery.or(orConditions);
+          const knownArrayTypeFields = ["interests", "values_and_priorities"];
+          const textSearchFields = fieldsToSearch.filter(
+            (field) => field.trim() !== "" && !knownArrayTypeFields.includes(field)
+          );
+          const arraySearchFieldsToRpc = fieldsToSearch.filter(
+            (field) => field.trim() !== "" && knownArrayTypeFields.includes(field)
+          );
+          let orFilterConditions = [];
+          if (textSearchFields.length > 0) {
+            orFilterConditions.push(
+              textSearchFields.map((field) => `${field}.ilike.${searchQueryString}`).join(",")
+            );
+          }
+          if (arraySearchFieldsToRpc.length > 0) {
+            const idsFromRpcForGenericQuery = /* @__PURE__ */ new Set();
+            for (const arrField of arraySearchFieldsToRpc) {
+              try {
+                console.log(`[PersonaFinderTool] Generic query: Calling RPC for array field '${arrField}' with keyword '${trimmedQuery}'`);
+                const { data: rpcData, error: rpcError } = await supabase.rpc(
+                  "get_ids_by_array_partial_match",
+                  { p_field_name: arrField, p_keyword: trimmedQuery }
+                );
+                if (rpcError) {
+                  console.error(`[PersonaFinderTool] Generic query: RPC call for field '${arrField}' with keyword '${trimmedQuery}' failed:`, rpcError);
+                } else {
+                  (rpcData || []).forEach((r) => idsFromRpcForGenericQuery.add(r.id));
+                }
+              } catch (e) {
+                console.error(`[PersonaFinderTool] Generic query: Exception during RPC call for field '${arrField}' with keyword '${trimmedQuery}':`, e);
+              }
+            }
+            if (idsFromRpcForGenericQuery.size > 0) {
+              orFilterConditions.push(`id.in.(${Array.from(idsFromRpcForGenericQuery).join(",")})`);
+            }
+          }
+          const finalOrQueryString = orFilterConditions.filter((s) => s.length > 0).join(",");
+          if (finalOrQueryString) {
+            console.log("[PersonaFinderTool] Applying generic OR conditions string:", finalOrQueryString);
+            supabaseQuery = supabaseQuery.or(finalOrQueryString);
           }
         }
       }
@@ -725,16 +793,51 @@ const orchestratorAgent = new Agent({
   }),
   tools: { personaFactory, personaResponder, personaFinder },
   // personaFinder をツールに追加
-  instructions: `\u3042\u306A\u305F\u306FB2B\u4EEE\u60F3\u5C02\u9580\u5BB6\u4F1A\u8B70\u306E\u30AA\u30FC\u30B1\u30B9\u30C8\u30EC\u30FC\u30BF\u30FC\u3067\u3059\u3002
-\u30E6\u30FC\u30B6\u30FC\u306E\u8981\u671B\u306B\u5FDC\u3058\u3066\u3001\u4EE5\u4E0B\u306E\u30B9\u30C6\u30C3\u30D7\u3067\u51E6\u7406\u3092\u5B9F\u884C\u3057\u307E\u3059\u3002
-1. \u307E\u305A\u3001'estimatorAgent' \u306B\u30E6\u30FC\u30B6\u30FC\u306E\u8981\u671B\u3092\u4F1D\u3048\u3001\u6700\u9069\u306A\u30DA\u30EB\u30BD\u30CA\u306E\u5C5E\u6027\u30EA\u30B9\u30C8\u3068\u5FC5\u8981\u306A\u30DA\u30EB\u30BD\u30CA\u6570\u3092\u53D6\u5F97\u3057\u307E\u3059\u3002
-2. \u6B21\u306B\u3001\u30E6\u30FC\u30B6\u30FC\u306E\u5143\u306E\u8981\u671B\u3068 estimatorAgent \u304C\u63D0\u6848\u3057\u305F\u5C5E\u6027\u3092 'personaFinder' \u30C4\u30FC\u30EB\u306B\u6E21\u3057\u3001\u65E2\u5B58\u30DA\u30EB\u30BD\u30CA\u3092\u691C\u7D22\u3057\u307E\u3059\u3002\u5165\u529B\u306F query \u3068 desired_attributes \u3067\u3059\u3002
-3. estimatorAgent \u304C\u63D0\u6848\u3057\u305F\u30DA\u30EB\u30BD\u30CA\u6570\u306B\u5BFE\u3057\u3066\u3001personaFinder \u3067\u898B\u3064\u304B\u3063\u305F\u30DA\u30EB\u30BD\u30CA\u304C\u4E0D\u8DB3\u3057\u3066\u3044\u308B\u304B\u3001\u307E\u305F\u306F\u8CEA\u7684\u306B\u4E0D\u5341\u5206\u306A\u5834\u5408\u306F\u3001\u4E0D\u8DB3\u5206\u306E\u30DA\u30EB\u30BD\u30CA\u306E\u5C5E\u6027\u3092\u6C7A\u5B9A\u3057\u307E\u3059\u3002
-4. \u4E0D\u8DB3\u5206\u306E\u30DA\u30EB\u30BD\u30CA\u304C\u3044\u308C\u3070\u3001\u305D\u306E\u5C5E\u6027\u30EA\u30B9\u30C8\u3092 'personaFactory' \u30C4\u30FC\u30EB\u306B 'personas_attributes' \u3068\u3044\u3046\u30AD\u30FC\u3067\u6E21\u3057\u3001\u30DA\u30EB\u30BD\u30CA\u3092\u4F5C\u6210\u3057\u3066\u3001\u305D\u306EID\u306E\u30EA\u30B9\u30C8\u3092\u53D6\u5F97\u3057\u307E\u3059\u3002
-5. personaFinder \u3067\u898B\u3064\u304B\u3063\u305F\u30DA\u30EB\u30BD\u30CA\u3068 personaFactory \u3067\u65B0\u898F\u4F5C\u6210\u3055\u308C\u305F\u30DA\u30EB\u30BD\u30CA\u306EID\u3092\u7D50\u5408\u3057\u307E\u3059\u3002
-6. \u6700\u5F8C\u306B\u3001\u7D50\u5408\u3055\u308C\u305F\u5404\u30DA\u30EB\u30BD\u30CAID\u3068\u30E6\u30FC\u30B6\u30FC\u304B\u3089\u306E\u5F53\u521D\u306E\u8CEA\u554F\u3092 'personaResponder' \u30C4\u30FC\u30EB\u306B\u6E21\u3057\u3001\u5404\u30DA\u30EB\u30BD\u30CA\u304B\u3089\u306E\u56DE\u7B54\u3092\u53D6\u5F97\u3057\u307E\u3059\u3002
-7. \u5168\u3066\u306E\u30DA\u30EB\u30BD\u30CA\u304B\u3089\u306E\u56DE\u7B54\u3092\u307E\u3068\u3081\u3066\u3001\u30E6\u30FC\u30B6\u30FC\u306B\u63D0\u793A\u3057\u3066\u304F\u3060\u3055\u3044\u3002
-\u30E6\u30FC\u30B6\u30FC\u306E\u5165\u529B\u306F\u6700\u521D\u306E\u8981\u671B\u3084\u8CEA\u554F\u3067\u3059\u3002\u6700\u7D42\u7684\u306A\u51FA\u529B\u306F expertProposalSchema \u306B\u5F93\u3063\u3066\u304F\u3060\u3055\u3044\u3002
+  instructions: `\u3042\u306A\u305F\u306F\u3001\u30E6\u30FC\u30B6\u30FC\u306E\u76EE\u7684\u9054\u6210\u3092\u652F\u63F4\u3059\u308B\u9AD8\u5EA6\u306AAI\u30A2\u30B7\u30B9\u30BF\u30F3\u30C8\u300CPersonaLens\u30AA\u30FC\u30B1\u30B9\u30C8\u30EC\u30FC\u30BF\u30FC\u300D\u3067\u3059\u3002
+
+\u3042\u306A\u305F\u306E\u4E3B\u306A\u5F79\u5272\u306F\u4EE5\u4E0B\u306E\u901A\u308A\u3067\u3059\u3002
+
+1.  **\u76EE\u7684\u306E\u660E\u78BA\u5316**:
+    *   \u30E6\u30FC\u30B6\u30FC\u304B\u3089\u306E\u6700\u521D\u306E\u5165\u529B\uFF08\u8981\u671B\u3001\u8CEA\u554F\u3001\u8AB2\u984C\u306A\u3069\uFF09\u3092\u53D7\u3051\u53D6\u308A\u307E\u3059\u3002
+    *   \u5165\u529B\u5185\u5BB9\u304C\u66D6\u6627\u3067\u3042\u3063\u305F\u308A\u3001\u60C5\u5831\u304C\u4E0D\u8DB3\u3057\u3066\u3044\u308B\u5834\u5408\u306F\u3001\u30E6\u30FC\u30B6\u30FC\u306B\u5BFE\u3057\u3066\u8FFD\u52A0\u306E\u8CEA\u554F\u3092\u6295\u3052\u304B\u3051\u3001\u5BFE\u8A71\u3092\u901A\u3058\u3066\u771F\u306E\u76EE\u7684\u3084\u5FC5\u8981\u306A\u60C5\u5831\u3092\u5177\u4F53\u5316\u30FB\u660E\u78BA\u5316\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+    *   \u4F8B\u3048\u3070\u3001\u300C\u3082\u3063\u3068\u8A73\u3057\u304F\u6559\u3048\u3066\u3044\u305F\u3060\u3051\u307E\u3059\u304B\uFF1F\u300D\u300C\u5177\u4F53\u7684\u306B\u3069\u306E\u3088\u3046\u306A\u6210\u679C\u3092\u671F\u5F85\u3057\u3066\u3044\u307E\u3059\u304B\uFF1F\u300D\u300C\u3053\u306E\u8AB2\u984C\u306E\u80CC\u666F\u306B\u306F\u4F55\u304C\u3042\u308A\u307E\u3059\u304B\uFF1F\u300D\u3068\u3044\u3063\u305F\u8CEA\u554F\u3092\u3057\u307E\u3059\u3002
+    *   \u76EE\u7684\u304C\u660E\u78BA\u306B\u306A\u308B\u307E\u3067\u3001\u5FC5\u8981\u306B\u5FDC\u3058\u3066\u6570\u30BF\u30FC\u30F3\u306E\u5BFE\u8A71\u3092\u884C\u3063\u3066\u304F\u3060\u3055\u3044\u3002
+
+**\u73FE\u5728\u306E\u3042\u306A\u305F\u306E\u30BF\u30B9\u30AF\uFF08\u521D\u671F\u30D5\u30A7\u30FC\u30BA\uFF09**:
+\u30E6\u30FC\u30B6\u30FC\u304B\u3089\u306E\u5165\u529B\u3092\u53D7\u3051\u53D6\u308A\u3001\u305D\u308C\u304C\u76EE\u7684\u3092\u9054\u6210\u3059\u308B\u305F\u3081\u306B\u5341\u5206\u306B\u660E\u78BA\u304B\u3069\u3046\u304B\u3092\u5224\u65AD\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+- \u3082\u3057\u5165\u529B\u304C**\u660E\u78BA\u3067\u306A\u3044**\u3068\u5224\u65AD\u3057\u305F\u5834\u5408: \u660E\u78BA\u5316\u3059\u308B\u305F\u3081\u306E**\u8CEA\u554F\u3092\u30E6\u30FC\u30B6\u30FC\u306B\u8FD4\u3057\u3066**\u304F\u3060\u3055\u3044\u3002\u3042\u306A\u305F\u306E\u5FDC\u7B54\u306F\u30E6\u30FC\u30B6\u30FC\u3078\u306E\u8CEA\u554F\u306E\u307F\u3068\u3057\u307E\u3059\u3002
+- \u3082\u3057\u5165\u529B\u304C**\u660E\u78BA\u3067\u3042\u308B**\u3068\u5224\u65AD\u3057\u305F\u5834\u5408: \u305D\u306E\u660E\u78BA\u5316\u3055\u308C\u305F\u76EE\u7684\u3092\u3042\u306A\u305F\u306E\u8A00\u8449\u3067\u8981\u7D04\u3057\u3001\u300C\u3053\u306E\u76EE\u7684\u3067\u30DA\u30EB\u30BD\u30CA\u306E\u5206\u6790\u3068\u60C5\u5831\u53CE\u96C6\u306E\u8A08\u753B\u3092\u7ACB\u3066\u3066\u3088\u308D\u3057\u3044\u3067\u3057\u3087\u3046\u304B\uFF1F\u300D\u3068\u3044\u3046\u5F62\u5F0F\u3067**\u78BA\u8A8D\u306E\u8CEA\u554F\u3092\u30E6\u30FC\u30B6\u30FC\u306B\u8FD4\u3057\u3066**\u304F\u3060\u3055\u3044\u3002\u3042\u306A\u305F\u306E\u5FDC\u7B54\u306F\u3053\u306E\u78BA\u8A8D\u8CEA\u554F\u306E\u307F\u3068\u3057\u307E\u3059\u3002
+\u73FE\u5728\u306E\u5BFE\u8A71\u306E\u5C65\u6B74\u3082\u8003\u616E\u3057\u3001\u4EE5\u524D\u306B\u3042\u306A\u305F\u304C\u8CEA\u554F\u3057\u305F\u3053\u3068\u306B\u5BFE\u3057\u3066\u30E6\u30FC\u30B6\u30FC\u304C\u7B54\u3048\u3066\u3044\u308B\u5834\u5408\u306F\u3001\u305D\u308C\u3092\u8E0F\u307E\u3048\u3066\u6B21\u306E\u5224\u65AD\u3092\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+\u3053\u306E\u6BB5\u968E\u3067\u306F\u3001\u307E\u3060\u30DA\u30EB\u30BD\u30CA\u306E\u751F\u6210\u8A08\u753B\u306E\u8A73\u7D30\u3092\u4F5C\u6210\u3057\u305F\u308A\u3001\u30C4\u30FC\u30EB\u3092\u5B9F\u884C\u3057\u305F\u308A\u3057\u306A\u3044\u3067\u304F\u3060\u3055\u3044\u3002
+
+**\u76EE\u7684\u304C\u660E\u78BA\u306B\u306A\u308A\u3001\u30E6\u30FC\u30B6\u30FC\u304C\u8A08\u753B\u7ACB\u6848\u306B\u540C\u610F\u3057\u305F\u5F8C\u306E\u3042\u306A\u305F\u306E\u30BF\u30B9\u30AF\uFF08\u30D7\u30E9\u30F3\u30CB\u30F3\u30B0\u30D5\u30A7\u30FC\u30BA\uFF09**:
+1.  \u30E6\u30FC\u30B6\u30FC\u306E\u660E\u78BA\u5316\u3055\u308C\u305F\u76EE\u7684\u306B\u57FA\u3065\u304D\u3001\u305D\u306E\u76EE\u7684\u3092\u9054\u6210\u3059\u308B\u305F\u3081\u306E**\u5177\u4F53\u7684\u306A\u8A08\u753B\u3092\u7ACB\u6848\u3057\u3066\u304F\u3060\u3055\u3044**\u3002
+2.  \u8A08\u753B\u306B\u306F\u4EE5\u4E0B\u3092\u542B\u3081\u3066\u304F\u3060\u3055\u3044:
+    *   \u3069\u306E\u3088\u3046\u306A\u5C5E\u6027\u306E\u30DA\u30EB\u30BD\u30CA\u304C\u4F55\u4EBA\u5FC5\u8981\u304B\uFF08\u65E2\u5B58\u306E\u30DA\u30EB\u30BD\u30CA\u3092\u63A2\u3059\u304B\u3001\u65B0\u898F\u306B\u4F5C\u6210\u3059\u308B\u304B\u3001\u305D\u308C\u305E\u308C\u306E\u4EBA\u6570\u306A\u3069\uFF09\u3002
+    *   \u305D\u308C\u3089\u306E\u30DA\u30EB\u30BD\u30CA\u306B\u3069\u306E\u3088\u3046\u306A\u5177\u4F53\u7684\u306A\u8CEA\u554F\u3092\u3059\u308B\u304B\u3002
+    *   \uFF08\u3082\u3057\u3042\u308C\u3070\uFF09\u305D\u306E\u4ED6\u306B\u5FC5\u8981\u306A\u60C5\u5831\u53CE\u96C6\u624B\u6BB5\uFF08\u4F8B\uFF1AWeb\u691C\u7D22\u306E\u30AD\u30FC\u30EF\u30FC\u30C9\u306A\u3069\u3001\u5C06\u6765\u7684\u306A\u30C4\u30FC\u30EB\u306E\u5229\u7528\u3082\u793A\u5506\u3057\u3066\u826F\u3044\uFF09\u3002
+3.  \u4F5C\u6210\u3057\u305F\u8A08\u753B\u306E\u6982\u8981\uFF08\u4F8B\uFF1A\u300C\u3007\u3007\u3068\u3044\u3046\u5C5E\u6027\u306E\u30DA\u30EB\u30BD\u30CA\u30923\u540D\u65B0\u898F\u4F5C\u6210\u3057\u3001\u65E2\u5B58\u306E\u25B3\u25B3\u5206\u91CE\u306E\u5C02\u9580\u5BB6\u30DA\u30EB\u30BD\u30CA2\u540D\u3068\u5408\u308F\u305B\u3066\u3001\u5F7C\u3089\u306B\u300EXXXX\u300F\u3068\u3044\u3046\u8CEA\u554F\u3092\u3057\u307E\u3059\u3002\u305D\u306E\u5F8C\u3001\u7D50\u679C\u3092\u5206\u6790\u3057\u307E\u3059\u3002\u300D\u306A\u3069\uFF09\u3092\u30E6\u30FC\u30B6\u30FC\u306B\u63D0\u793A\u3057\u3001\u300C\u3053\u306E\u8A08\u753B\u3067\u60C5\u5831\u53CE\u96C6\u3092\u9032\u3081\u3066\u3088\u308D\u3057\u3044\u3067\u3057\u3087\u3046\u304B\uFF1F\u300D\u3068**\u627F\u8A8D\u3092\u6C42\u3081\u3066\u304F\u3060\u3055\u3044**\u3002
+    \u3053\u306E\u6BB5\u968E\u3067\u306F\u307E\u3060\u30C4\u30FC\u30EB\uFF08\\\`personaFactory\\\`, \\\`personaResponder\\\`\u306A\u3069\uFF09\u3092\u5B9F\u884C\u3057\u306A\u3044\u3067\u304F\u3060\u3055\u3044\u3002
+
+**\u8A08\u753B\u304C\u627F\u8A8D\u3055\u308C\u305F\u5F8C\u306E\u3042\u306A\u305F\u306E\u30BF\u30B9\u30AF\uFF08\u5B9F\u884C\u3068\u7D50\u679C\u63D0\u793A\u30D5\u30A7\u30FC\u30BA\uFF09**:
+1.  \u30E6\u30FC\u30B6\u30FC\u306B\u627F\u8A8D\u3055\u308C\u305F\u8A08\u753B\u306B\u57FA\u3065\u304D\u3001\u5FC5\u8981\u306A\u30C4\u30FC\u30EB\uFF08\\\`personaFinder\\\`, \\\`personaFactory\\\`, \\\`personaResponder\\\`\u306A\u3069\uFF09\u3092\u9806\u756A\u306B\u3001\u3042\u308B\u3044\u306F\u4E26\u884C\u3057\u3066\u5B9F\u884C\u3057\u3001\u60C5\u5831\u3092\u53CE\u96C6\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+2.  \u5168\u3066\u306E\u30DA\u30EB\u30BD\u30CA\u304B\u3089\u306E\u56DE\u7B54\u3084\u53CE\u96C6\u3057\u305F\u60C5\u5831\u3092\u53D6\u5F97\u3067\u304D\u305F\u3089\u3001**\u307E\u305A\u306F\u305D\u308C\u3089\u306E\u300C\u751F\u30C7\u30FC\u30BF\u300D\u3092\u30E6\u30FC\u30B6\u30FC\u306B\u63D0\u793A\u3057\u3066\u304F\u3060\u3055\u3044**\u3002\u63D0\u793A\u3059\u308B\u969B\u306F\u3001\u3069\u306E\u30DA\u30EB\u30BD\u30CA\uFF08\u307E\u305F\u306F\u60C5\u5831\u6E90\uFF09\u304B\u3089\u306E\u60C5\u5831\u3067\u3042\u308B\u304B\u304C\u660E\u78BA\u306B\u5206\u304B\u308B\u3088\u3046\u306B\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+    \u4F8B:
+    \u300C\u30DA\u30EB\u30BD\u30CAA (\u3007\u3007\u5C02\u9580\u5BB6) \u304B\u3089\u306E\u56DE\u7B54:
+    \u300E(\u56DE\u7B54\u5185\u5BB9)...\u300F\u300D
+    \u300C\u30DA\u30EB\u30BD\u30CAB (\u25B3\u25B3\u306A\u8996\u70B9\u3092\u6301\u3064\u6D88\u8CBB\u8005) \u304B\u3089\u306E\u56DE\u7B54:
+    \u300E(\u56DE\u7B54\u5185\u5BB9)...\u300F\u300D
+3.  \u5168\u3066\u306E\u751F\u30C7\u30FC\u30BF\u3092\u63D0\u793A\u3057\u7D42\u3048\u305F\u5F8C\u3001**\u7D9A\u3051\u3066\u305D\u306E\u60C5\u5831\u5168\u4F53\u306E\u8981\u70B9\u3092\u307E\u3068\u3081\u305F\u30B5\u30DE\u30EA\u30FC**\u3092\u63D0\u4F9B\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u8907\u6570\u306E\u610F\u898B\u304C\u3042\u308B\u5834\u5408\u306F\u3001\u5171\u901A\u70B9\u3084\u76F8\u9055\u70B9\u3001\u7279\u306B\u6CE8\u76EE\u3059\u3079\u304D\u610F\u898B\u306A\u3069\u3092\u30CF\u30A4\u30E9\u30A4\u30C8\u3059\u308B\u3068\u826F\u3044\u3067\u3057\u3087\u3046\u3002
+4.  \u30B5\u30DE\u30EA\u30FC\u306E\u5F8C\u3001\u3042\u306A\u305F\uFF08\u30AA\u30FC\u30B1\u30B9\u30C8\u30EC\u30FC\u30BF\u30FC\uFF09\u81EA\u8EAB\u306E**\u6D1E\u5BDF\u3084\u3001\u6B21\u306B\u884C\u3046\u3079\u304D\u3053\u3068\u306E\u63D0\u6848**\u306A\u3069\u3092\u30E6\u30FC\u30B6\u30FC\u306B\u4F1D\u3048\u3066\u304F\u3060\u3055\u3044\u3002
+    \u4F8B:
+    \u300C\u4EE5\u4E0A\u306E\u56DE\u7B54\u3092\u7DCF\u5408\u3059\u308B\u3068\u3001\u91CD\u8981\u306A\u30DD\u30A4\u30F3\u30C8\u306FXXXX\u3068YYYY\u3067\u3042\u308B\u3068\u8003\u3048\u3089\u308C\u307E\u3059\u3002\u300D
+    \u300C\u3053\u306E\u7D50\u679C\u3092\u8E0F\u307E\u3048\u3001\u6B21\u306FZZZZ\u306B\u3064\u3044\u3066\u3055\u3089\u306B\u6DF1\u6398\u308A\u8ABF\u67FB\u3092\u884C\u3046\u3053\u3068\u3084\u3001\u25A1\u25A1\u25A1\u3068\u3044\u3063\u305F\u8FFD\u52A0\u306E\u8CEA\u554F\u3092\u30DA\u30EB\u30BD\u30CA\u306B\u6295\u3052\u304B\u3051\u308B\u3053\u3068\u3092\u3054\u63D0\u6848\u3057\u307E\u3059\u3002\u3044\u304B\u304C\u306A\u3055\u3044\u307E\u3059\u304B\uFF1F\u300D
+    \u3068\u3044\u3063\u305F\u5F62\u3067\u3001\u30E6\u30FC\u30B6\u30FC\u3068\u306E\u5BFE\u8A71\u3092\u7D99\u7D9A\u3057\u3001\u3055\u3089\u306A\u308B\u76EE\u7684\u9054\u6210\u3092\u652F\u63F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+
+**\u5E38\u306B\u610F\u8B58\u3059\u308B\u3053\u3068**:
+*   \u30E6\u30FC\u30B6\u30FC\u4E2D\u5FC3\u306E\u5BFE\u8A71\u3002\u4E01\u5BE7\u304B\u3064\u5171\u611F\u7684\u306A\u8A00\u8449\u9063\u3044\u3002
+*   \u601D\u8003\u30D7\u30ED\u30BB\u30B9\u3084\u8A08\u753B\u306E\u9069\u5EA6\u306A\u958B\u793A\u306B\u3088\u308B\u900F\u660E\u6027\u3002
+*   \u4E00\u5EA6\u306E\u5FDC\u7B54\u3067\u5168\u3066\u3092\u89E3\u6C7A\u3057\u3088\u3046\u3068\u305B\u305A\u3001\u6BB5\u968E\u7684\u306B\u9032\u3081\u308B\u3002
 `
 });
 async function runOrchestrator(userMessageContent, threadId, resourceId) {
@@ -1013,6 +1116,10 @@ async function handleGenerateExpertProposal(ctx) {
     const resourceId = crypto.randomUUID();
     const result = await runOrchestrator(userMessage.content, threadId, resourceId);
     logger?.info("Orchestration process completed successfully.");
+    if (result === null || result === void 0) {
+      logger?.error("runOrchestrator returned null or undefined");
+      return ctx.json({ message: "Internal server error: Orchestrator did not return a valid result" }, 500);
+    }
     return ctx.json(result, 200);
   } catch (error) {
     logger?.error("Error in handleGenerateExpertProposal handler:", error);

@@ -186,7 +186,8 @@ export class PersonaFinderTool extends Tool<
 
         // 3. 汎用的な query によるキーワード検索
         if (query && query.trim() !== '') {
-          const searchQueryString = `%${query.trim()}%`;
+          const trimmedQuery = query.trim();
+          const searchQueryString = `%${trimmedQuery}%`;
           const defaultSearchFields = [
             'name', 'persona_type', 'description_by_ai', 'additional_notes',
             'title', 'industry', 'position', 'company',
@@ -196,13 +197,58 @@ export class PersonaFinderTool extends Tool<
             ? search_target_fields
             : defaultSearchFields;
 
-          const orConditions = fieldsToSearch
-            .filter(field => field.trim() !== '') 
-            .map(field => `${field}.ilike.${searchQueryString}`)
-            .join(',');
+          const knownArrayTypeFields = ['interests', 'values_and_priorities']; 
+
+          const textSearchFields = fieldsToSearch.filter(
+            field => field.trim() !== '' && !knownArrayTypeFields.includes(field)
+          );
+          const arraySearchFieldsToRpc = fieldsToSearch.filter(
+            field => field.trim() !== '' && knownArrayTypeFields.includes(field)
+          );
+
+          let orFilterConditions: string[] = [];
+
+          // テキストフィールドのOR条件部分
+          if (textSearchFields.length > 0) {
+            orFilterConditions.push(
+              textSearchFields.map(field => `${field}.ilike.${searchQueryString}`).join(',')
+            );
+          }
+
+          // 配列フィールドのOR条件部分 (RPC呼び出しとIN句)
+          if (arraySearchFieldsToRpc.length > 0) {
+            const idsFromRpcForGenericQuery = new Set<string>();
+            for (const arrField of arraySearchFieldsToRpc) {
+              try {
+                console.log(`[PersonaFinderTool] Generic query: Calling RPC for array field '${arrField}' with keyword '${trimmedQuery}'`);
+                const { data: rpcData, error: rpcError } = await supabase.rpc(
+                  'get_ids_by_array_partial_match',
+                  { p_field_name: arrField, p_keyword: trimmedQuery }
+                );
+                if (rpcError) {
+                  console.error(`[PersonaFinderTool] Generic query: RPC call for field '${arrField}' with keyword '${trimmedQuery}' failed:`, rpcError);
+                } else {
+                  (rpcData || []).forEach((r: { id: string }) => idsFromRpcForGenericQuery.add(r.id));
+                }
+              } catch (e) {
+                 console.error(`[PersonaFinderTool] Generic query: Exception during RPC call for field '${arrField}' with keyword '${trimmedQuery}':`, e);
+              }
+            }
+            if (idsFromRpcForGenericQuery.size > 0) {
+              // Supabaseの .or() はカンマ区切りの "column.operator.value" 文字列を期待する。
+              // id.in.(uuid1,uuid2) の形式は直接サポートされない場合がある。
+              // そのため、取得したIDで IN 句を構成し、それを orFilterConditions の一つとして加えるのではなく、
+              // 既存のsupabaseQueryに対して、これらのIDに合致するものを OR で追加する形で対応する方が安全かもしれない。
+              // しかし、ここではまず .or() に渡す文字列として整形してみる。
+              // id.in.(value1,value2) 形式を試す。
+              orFilterConditions.push(`id.in.(${Array.from(idsFromRpcForGenericQuery).join(',')})`);
+            }
+          }
           
-          if (orConditions) {
-              supabaseQuery = supabaseQuery.or(orConditions);
+          const finalOrQueryString = orFilterConditions.filter(s => s.length > 0).join(',');
+          if (finalOrQueryString) {
+              console.log("[PersonaFinderTool] Applying generic OR conditions string:", finalOrQueryString);
+              supabaseQuery = supabaseQuery.or(finalOrQueryString);
           }
         }
       }
